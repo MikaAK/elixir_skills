@@ -1,8 +1,15 @@
 defmodule ElixirMcpTest do
   use ExUnit.Case
-  doctest ElixirMcp
 
-  test "greets the world" do
-    assert ElixirMcp.hello() == :world
+  test "scan returns ok tuple" do
+    assert {:ok, _skills} = ElixirMcp.scan()
+  end
+
+  test "installed returns a map" do
+    assert is_map(ElixirMcp.installed())
+  end
+
+  test "plan returns a list" do
+    assert is_list(ElixirMcp.plan([]))
   end
 end
