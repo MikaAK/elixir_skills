@@ -8,7 +8,9 @@ defmodule ElixirMcp.MixProject do
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
-      deps: deps()
+      deps: deps(),
+      description: "Standardized skill bundling and MCP server for Elixir hex packages",
+      package: package()
     ]
   end
 
@@ -16,6 +18,15 @@ defmodule ElixirMcp.MixProject do
     [
       extra_applications: [:logger],
       mod: {ElixirMcp.Application, []}
+    ]
+  end
+
+  defp package do
+    [
+      maintainers: ["Mika Kalathil"],
+      licenses: ["MIT"],
+      links: %{"GitHub" => "https://github.com/MikaAK/elixir_mcp"},
+      files: ~w(mix.exs README.md lib priv)
     ]
   end
 
