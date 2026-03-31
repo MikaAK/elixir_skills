@@ -1,10 +1,10 @@
-defmodule Mix.Tasks.ClaudeSkills.Server do
+defmodule Mix.Tasks.Skills.Server do
   @shortdoc "Starts the MCP server for skill discovery and installation"
   @moduledoc """
   Starts an MCP server that exposes skills from hex dependencies to any MCP client.
 
-      $ mix claude_skills.server              # stdio transport (default)
-      $ mix claude_skills.server --http 4242  # HTTP transport on port 4242
+      $ mix skills.server              # stdio transport (default)
+      $ mix skills.server --http 4242  # HTTP transport on port 4242
 
   ## Claude Code integration
 
@@ -14,7 +14,7 @@ defmodule Mix.Tasks.ClaudeSkills.Server do
         "mcpServers": {
           "elixir-skills": {
             "command": "mix",
-            "args": ["claude_skills.server"],
+            "args": ["skills.server"],
             "cwd": "/path/to/your/project"
           }
         }

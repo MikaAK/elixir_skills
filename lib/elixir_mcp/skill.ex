@@ -1,6 +1,6 @@
 defmodule ElixirMcp.Skill do
   @moduledoc """
-  Represents a Claude Code skill bundled in a hex package's `priv/claude_skills/` directory.
+  Represents a Claude Code skill bundled in a hex package's `priv/skills/` directory.
   """
 
   @type mcp_config :: %{

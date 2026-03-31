@@ -1,6 +1,10 @@
 defmodule ElixirMcp.Manifest do
   @moduledoc """
-  Parses and validates `manifest.json` files from `priv/claude_skills/`.
+  Discovers skills by scanning directories and parsing SKILL.md frontmatter.
+
+  Each subdirectory under a skills base path that contains a `SKILL.md` file
+  is treated as a skill. Metadata (description, mcp config) is extracted from
+  YAML frontmatter delimited by `---` lines.
   """
 
   alias ElixirMcp.{Config, Skill}
@@ -8,64 +12,82 @@ defmodule ElixirMcp.Manifest do
   @type error :: {:error, String.t()}
 
   @doc """
-  Parses a manifest.json file at the given path and returns a list of Skill structs.
-
-  The `package` and `base_path` are used to resolve full paths and namespacing.
+  Scans a directory for skill subdirectories containing SKILL.md files.
+  Returns a list of Skill structs built from frontmatter metadata.
   """
-  @spec parse(String.t(), atom(), String.t()) :: {:ok, [Skill.t()]} | error()
-  def parse(manifest_path, package, base_path) do
-    with {:ok, contents} <- File.read(manifest_path),
-         {:ok, json} <- Jason.decode(contents),
-         :ok <- validate_schema_version(json),
-         {:ok, skills} <- parse_skills(json, package, base_path) do
+  @spec scan(String.t(), atom()) :: {:ok, [Skill.t()]} | error()
+  def scan(base_path, package) do
+    if File.dir?(base_path) do
+      skills =
+        base_path
+        |> File.ls!()
+        |> Enum.sort()
+        |> Enum.filter(fn name -> File.dir?(Path.join(base_path, name)) end)
+        |> Enum.reduce([], fn dir_name, acc ->
+          skill_md = Path.join([base_path, dir_name, "SKILL.md"])
+
+          if File.exists?(skill_md) do
+            case parse_skill(dir_name, skill_md, package, base_path) do
+              {:ok, skill} -> [skill | acc]
+              {:error, _} -> acc
+            end
+          else
+            acc
+          end
+        end)
+        |> Enum.reverse()
+
       {:ok, skills}
     else
-      {:error, %Jason.DecodeError{} = err} -> {:error, "Invalid JSON in #{manifest_path}: #{Exception.message(err)}"}
-      {:error, reason} when is_binary(reason) -> {:error, reason}
-      {:error, reason} -> {:error, "Failed to read #{manifest_path}: #{inspect(reason)}"}
+      {:error, "Directory does not exist: #{base_path}"}
     end
   end
 
-  defp validate_schema_version(%{"schema_version" => 1}), do: :ok
-  defp validate_schema_version(%{"schema_version" => v}), do: {:error, "Unsupported manifest schema_version: #{v}"}
-  defp validate_schema_version(_), do: {:error, "Missing schema_version in manifest"}
-
-  defp parse_skills(%{"skills" => skills}, package, base_path) when is_list(skills) do
-    results =
-      Enum.reduce_while(skills, {:ok, []}, fn entry, {:ok, acc} ->
-        case parse_skill_entry(entry, package, base_path) do
-          {:ok, skill} -> {:cont, {:ok, [skill | acc]}}
-          {:error, _} = err -> {:halt, err}
-        end
-      end)
-
-    case results do
-      {:ok, skills} -> {:ok, Enum.reverse(skills)}
-      error -> error
-    end
-  end
-
-  defp parse_skills(_, _, _), do: {:error, "Missing or invalid 'skills' array in manifest"}
-
-  defp parse_skill_entry(%{"id" => id} = entry, package, base_path) do
-    with :ok <- validate_id(id) do
-      source_path = Path.join(base_path, id)
-      mcp = parse_mcp_config(entry["mcp"])
+  @doc """
+  Parses a single SKILL.md file and returns a Skill struct.
+  """
+  @spec parse_skill(String.t(), String.t(), atom(), String.t()) :: {:ok, Skill.t()} | error()
+  def parse_skill(dir_name, skill_md_path, package, base_path) do
+    with :ok <- validate_id(dir_name),
+         {:ok, contents} <- File.read(skill_md_path),
+         {:ok, frontmatter} <- parse_frontmatter(contents) do
+      source_path = Path.join(base_path, dir_name)
 
       skill = %Skill{
-        id: id,
-        namespaced_id: Skill.namespace(package, id),
+        id: dir_name,
+        namespaced_id: Skill.namespace(package, dir_name),
         package: package,
-        description: entry["description"],
+        description: frontmatter["description"],
         source_path: source_path,
-        mcp: mcp
+        mcp: parse_mcp_config(frontmatter["mcp"])
       }
 
       {:ok, skill}
     end
   end
 
-  defp parse_skill_entry(_, _, _), do: {:error, "Skill entry missing required 'id' field"}
+  @doc """
+  Extracts YAML frontmatter from a string delimited by `---` lines.
+  Returns a map of key-value pairs parsed from simple `key: value` lines.
+  """
+  @spec parse_frontmatter(String.t()) :: {:ok, map()} | error()
+  def parse_frontmatter(content) do
+    case String.split(content, ~r/^---\s*$/m, parts: 3) do
+      [_, yaml, _] -> {:ok, parse_yaml(yaml)}
+      _ -> {:ok, %{}}
+    end
+  end
+
+  defp parse_yaml(yaml_string) do
+    yaml_string
+    |> String.split("\n")
+    |> Enum.reduce(%{}, fn line, acc ->
+      case Regex.run(~r/^(\w[\w-]*):\s*(.+)$/, String.trim(line)) do
+        [_, key, value] -> Map.put(acc, key, String.trim(value))
+        _ -> acc
+      end
+    end)
+  end
 
   defp validate_id(id) do
     if Regex.match?(Config.valid_id_pattern(), id) do
@@ -77,15 +99,14 @@ defmodule ElixirMcp.Manifest do
 
   defp parse_mcp_config(nil), do: nil
 
-  defp parse_mcp_config(%{"type" => type, "name" => name}) when type in ["tool", "resource", "prompt"] do
-    %{type: String.to_existing_atom(type), name: name}
-  end
+  defp parse_mcp_config(mcp_string) when is_binary(mcp_string) do
+    # frontmatter mcp is a simple "type:name" format
+    case String.split(mcp_string, ":", parts: 2) do
+      [type, name] when type in ["tool", "resource", "prompt"] ->
+        %{type: String.to_existing_atom(String.trim(type)), name: String.trim(name)}
 
-  defp parse_mcp_config(%{"type" => type, "name" => name}) do
-    try do
-      %{type: String.to_atom(type), name: name}
-    rescue
-      _ -> nil
+      _ ->
+        nil
     end
   end
 

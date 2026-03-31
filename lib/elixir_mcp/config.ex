@@ -1,60 +1,177 @@
 defmodule ElixirMcp.Config do
   @moduledoc """
   Configuration for ElixirMcp skill discovery and installation.
+
+  ## Agent support
+
+  ElixirMcp can install skills for multiple agents (Claude Code, Windsurf, Cursor, etc.).
+  Each agent has a dotdir (e.g. `.claude/`, `.windsurf/`) where skills are installed.
+
+  Configure which agents to target:
+
+      # config/config.exs
+      config :elixir_mcp, agents: [:claude, :cursor]
+
+  Or let auto-detection find which agent dotdirs exist:
+
+      config :elixir_mcp, agents: :auto  # default
+
+  Supported agents: #{inspect([:claude, :windsurf, :cursor, :codex, :amp])}
   """
 
-  @default_skills_dir Path.expand("~/.claude/skills")
-  @manifest_filename "manifest.json"
-  @skills_dir_name "claude_skills"
+  @agents Application.compile_env(:elixir_mcp, :agents, :auto)
+  @bundled_skills_dir Application.compile_env(:elixir_mcp, :bundled_skills_dir, nil)
+  @allowed_packages Application.compile_env(:elixir_mcp, :allowed_packages, nil)
+
+  @skills_dir_name "skills"
   @tracking_filename ".elixir_mcp.json"
   @bundled_package :elixir_mcp
   @valid_id_pattern ~r/^[a-z0-9][a-z0-9-]*$/
 
-  @doc "Target directory for installed skills."
-  @spec skills_target_dir() :: String.t()
-  def skills_target_dir do
-    Application.get_env(:elixir_mcp, :skills_target_dir, @default_skills_dir)
+  @known_agents %{
+    claude: ".claude",
+    windsurf: ".windsurf",
+    cursor: ".cursor",
+    codex: ".codex",
+    amp: ".amp"
+  }
+
+  # AGENT RESOLUTION
+
+  @doc """
+  Returns the list of agents to install skills for.
+
+  Resolution order:
+    1. Explicit `agents: [...]` in opts
+    2. Compile-time config `config :elixir_mcp, agents: [...]`
+    3. Auto-detection: scans project root for known agent dotdirs
+  """
+  @spec resolve_agents(keyword()) :: [atom()]
+  def resolve_agents(opts \\ []) do
+    case Keyword.get(opts, :agents, @agents) do
+      :auto -> detect_agents()
+      agents when is_list(agents) -> agents
+    end
   end
 
-  @doc "Name of the manifest file inside priv/claude_skills/."
-  @spec manifest_filename() :: String.t()
-  def manifest_filename, do: @manifest_filename
+  @doc """
+  Detects which agents have dotdirs in the project root.
+  Returns atoms for each detected agent (e.g. `[:claude, :cursor]`).
+  """
+  @spec detect_agents() :: [atom()]
+  def detect_agents do
+    root = project_root()
 
-  @doc "Name of the skills directory inside priv/."
+    @known_agents
+    |> Enum.filter(fn {_agent, dotdir} -> File.dir?(Path.join(root, dotdir)) end)
+    |> Enum.map(fn {agent, _} -> agent end)
+    |> Enum.sort()
+  end
+
+  @doc "Returns the dotdir name for a known agent (e.g. `:claude` → `\".claude\"`)."
+  @spec agent_dotdir(atom()) :: String.t()
+  def agent_dotdir(agent), do: Map.fetch!(@known_agents, agent)
+
+  @doc "Returns the list of known/supported agent names."
+  @spec known_agents() :: [atom()]
+  def known_agents, do: Map.keys(@known_agents)
+
+  # TARGET DIRECTORIES
+
+  @doc """
+  Returns all target directories for skill installation based on resolved agents.
+
+  Options:
+    - `:agents` - explicit agent list or `:auto`
+    - `:global` - use global home dirs instead of project-local
+    - `:target_dir` - override completely (single dir, ignores agents)
+  """
+  @spec skills_target_dirs(keyword()) :: [String.t()]
+  def skills_target_dirs(opts \\ []) do
+    case Keyword.get(opts, :target_dir) do
+      nil ->
+        global? = Keyword.get(opts, :global, false)
+
+        opts
+        |> resolve_agents()
+        |> Enum.map(fn agent -> agent_skills_dir(agent, global?) end)
+
+      dir ->
+        [dir]
+    end
+  end
+
+  @doc """
+  Returns a single target directory for backwards compatibility.
+  Uses the first resolved agent, falling back to `:claude`.
+  """
+  @spec skills_target_dir(keyword()) :: String.t()
+  def skills_target_dir(opts \\ []) do
+    case Keyword.get(opts, :target_dir) do
+      nil ->
+        agent =
+          opts
+          |> resolve_agents()
+          |> List.first()
+          |> Kernel.||(:claude)
+
+        agent_skills_dir(agent, Keyword.get(opts, :global, false))
+
+      dir ->
+        dir
+    end
+  end
+
+  @doc "Skills directory for a specific agent and scope."
+  @spec agent_skills_dir(atom(), boolean()) :: String.t()
+  def agent_skills_dir(agent, global?) do
+    dotdir = agent_dotdir(agent)
+
+    if global? do
+      Path.expand(Path.join(["~", dotdir, "skills"]))
+    else
+      Path.join([project_root(), dotdir, "skills"])
+    end
+  end
+
+  # TRACKING
+
+  @doc "Full path to the tracking file for the given scope."
+  @spec tracking_file_path(keyword()) :: String.t()
+  def tracking_file_path(opts \\ []) do
+    Path.join(skills_target_dir(opts), @tracking_filename)
+  end
+
+  # STATIC CONFIG
+
   @spec skills_dir_name() :: String.t()
   def skills_dir_name, do: @skills_dir_name
 
-  @doc "Name of the tracking file written to the skills target dir."
   @spec tracking_filename() :: String.t()
   def tracking_filename, do: @tracking_filename
 
-  @doc "Full path to the tracking file."
-  @spec tracking_file_path() :: String.t()
-  def tracking_file_path do
-    Path.join(skills_target_dir(), @tracking_filename)
-  end
-
-  @doc "Regex pattern that valid skill IDs must match."
   @spec valid_id_pattern() :: Regex.t()
   def valid_id_pattern, do: @valid_id_pattern
 
-  @doc "Directory containing bundled fallback skills shipped with elixir_mcp."
-  @spec bundled_skills_dir() :: String.t()
-  def bundled_skills_dir do
-    Application.get_env(:elixir_mcp, :bundled_skills_dir, default_bundled_skills_dir())
-  end
-
-  @doc "The package atom used for bundled fallback skills."
   @spec bundled_package() :: atom()
   def bundled_package, do: @bundled_package
 
-  @doc "Optional allowlist of packages permitted to install skills."
-  @spec allowed_packages() :: [atom()] | nil
-  def allowed_packages do
-    Application.get_env(:elixir_mcp, :allowed_packages, nil)
+  @spec bundled_skills_dir() :: String.t()
+  def bundled_skills_dir do
+    @bundled_skills_dir || Application.app_dir(:elixir_mcp, "priv/bundled_skills")
   end
 
-  defp default_bundled_skills_dir do
-    Application.app_dir(:elixir_mcp, "priv/bundled_skills")
+  @spec allowed_packages() :: [atom()] | nil
+  def allowed_packages, do: @allowed_packages
+
+  # PRIVATE
+
+  @doc false
+  def project_root do
+    if function_exported?(Mix.Project, :project_file, 0) do
+      Path.dirname(Mix.Project.project_file())
+    else
+      File.cwd!()
+    end
   end
 end

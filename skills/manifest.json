@@ -1,9 +1,0 @@
-{
-  "schema_version": 1,
-  "skills": [
-    {
-      "id": "oban-workers",
-      "description": "Use when implementing Oban background workers (fallback — install oban's own skill for the authoritative version)"
-    }
-  ]
-}

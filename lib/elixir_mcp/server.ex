@@ -29,7 +29,7 @@ defmodule ElixirMcp.Server do
     capabilities: [:tools]
 
   alias Hermes.Server.Frame
-  alias ElixirMcp.{Discovery, Installer, Skill}
+  alias ElixirMcp.{Config, Discovery, Installer, Skill}
 
   @doc "Starts the MCP server with the given transport."
   def start(transport) do
@@ -50,21 +50,27 @@ defmodule ElixirMcp.Server do
         }
       )
       |> Frame.register_tool("install_skill",
-        description: "Install a skill to the local Claude Code skills directory (~/.claude/skills/)",
+        description: "Install a skill by symlinking into detected agent skill directories (auto-detects Claude, Windsurf, Cursor, etc.)",
         input_schema: %{
           type: :object,
           properties: %{
             skill_id: %{type: :string, description: "Namespaced skill ID to install"},
-            copy: %{type: :boolean, description: "Copy files instead of symlink (default: false)"}
+            copy: %{type: :boolean, description: "Copy files instead of symlink (default: false)"},
+            global: %{type: :boolean, description: "Install to global ~/.<agent>/skills/ instead of project-local (default: false)"},
+            agent: %{type: :string, description: "Specific agent to install for: claude, windsurf, cursor, codex, amp (default: auto-detect all)"}
           },
           required: [:skill_id]
         }
       )
       |> Frame.register_tool("uninstall_skill",
-        description: "Remove a previously installed skill from the local skills directory",
+        description: "Remove a previously installed skill from detected agent skill directories",
         input_schema: %{
           type: :object,
-          properties: %{skill_id: %{type: :string, description: "Namespaced skill ID to uninstall"}},
+          properties: %{
+            skill_id: %{type: :string, description: "Namespaced skill ID to uninstall"},
+            global: %{type: :boolean, description: "Uninstall from global ~/.<agent>/skills/ instead of project-local (default: false)"},
+            agent: %{type: :string, description: "Specific agent to uninstall from (default: auto-detect all)"}
+          },
           required: [:skill_id]
         }
       )
@@ -121,38 +127,42 @@ defmodule ElixirMcp.Server do
 
   def handle_tool_call("install_skill", %{"skill_id" => skill_id} = args, frame) do
     copy? = Map.get(args, "copy", false)
+    global? = Map.get(args, "global", false)
+    agent_opts = parse_agent_arg(args)
+    target_dirs = Config.skills_target_dirs(agent_opts ++ [global: global?])
 
     case find_skill(skill_id) do
       {:ok, skill} ->
-        plan_entry = %{skill: skill, action: :new, reason: nil}
-        {:ok, %{installed: installed, skipped: skipped}} = Installer.execute([plan_entry], copy: copy?, force: true)
+        results =
+          Enum.map(target_dirs, fn target_dir ->
+            plan_entry = %{skill: skill, action: :new, reason: nil}
+            install_opts = [target_dir: target_dir, copy: copy?, force: true]
+            {:ok, _} = Installer.execute([plan_entry], install_opts)
+            "#{target_dir}/#{skill_id}"
+          end)
 
-        result =
-          cond do
-            length(installed) > 0 ->
-              "Installed skill #{skill_id} to #{ElixirMcp.Config.skills_target_dir()}/#{skill_id}"
-
-            length(skipped) > 0 ->
-              "Skill #{skill_id} was skipped (may already be installed)"
-
-            true ->
-              "No action taken for #{skill_id}"
-          end
-
-        {:reply, text_response(result), frame}
+        {:reply, text_response("Installed skill #{skill_id} to: #{Enum.join(results, ", ")}"), frame}
 
       {:error, reason} ->
         {:reply, text_response(reason), frame}
     end
   end
 
-  def handle_tool_call("uninstall_skill", %{"skill_id" => skill_id}, frame) do
-    case Installer.uninstall([skill_id]) do
-      {:ok, []} ->
-        {:reply, text_response("Skill #{skill_id} not found in installed skills"), frame}
+  def handle_tool_call("uninstall_skill", %{"skill_id" => skill_id} = args, frame) do
+    global? = Map.get(args, "global", false)
+    agent_opts = parse_agent_arg(args)
+    target_dirs = Config.skills_target_dirs(agent_opts ++ [global: global?])
 
-      {:ok, removed} ->
-        {:reply, text_response("Uninstalled: #{Enum.join(removed, ", ")}"), frame}
+    all_removed =
+      Enum.flat_map(target_dirs, fn target_dir ->
+        {:ok, removed} = Installer.uninstall([skill_id], [target_dir: target_dir])
+        Enum.map(removed, fn id -> "#{id} (#{target_dir})" end)
+      end)
+
+    if Enum.empty?(all_removed) do
+      {:reply, text_response("Skill #{skill_id} not found in any installed agent directory"), frame}
+    else
+      {:reply, text_response("Uninstalled: #{Enum.join(all_removed, ", ")}"), frame}
     end
   end
 
@@ -161,6 +171,14 @@ defmodule ElixirMcp.Server do
   end
 
   # -- Private --
+
+  defp parse_agent_arg(%{"agent" => agent_str}) when is_binary(agent_str) do
+    [agents: [String.to_existing_atom(agent_str)]]
+  rescue
+    ArgumentError -> []
+  end
+
+  defp parse_agent_arg(_), do: []
 
   defp text_response(text) do
     Hermes.Server.Response.tool() |> Hermes.Server.Response.text(text)

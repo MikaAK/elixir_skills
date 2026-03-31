@@ -5,8 +5,7 @@ defmodule ElixirMcp.MixProject do
     [
       app: :elixir_mcp,
       version: "0.1.0",
-      elixir: "~> 1.18",
-      start_permanent: Mix.env() == :prod,
+      start_permanent: Mix.env() === :prod,
       aliases: aliases(),
       deps: deps(),
       description: "Standardized skill bundling and MCP server for Elixir hex packages",
@@ -31,10 +30,14 @@ defmodule ElixirMcp.MixProject do
   end
 
   defp aliases do
-    [
-      compile: ["claude_skills.build", "compile"],
-      test: ["claude_skills.build", "test"]
-    ]
+    if Mix.Project.config()[:app] === :elixir_mcp do
+      [
+        compile: ["skills.build", "compile"],
+        test: ["skills.build", "test"]
+      ]
+    else
+      []
+    end
   end
 
   defp deps do

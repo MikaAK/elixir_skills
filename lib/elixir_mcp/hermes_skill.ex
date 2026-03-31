@@ -18,7 +18,7 @@ if Code.ensure_loaded?(Hermes.Server.Component) do
 
     ## Options
 
-      - `:skill_id` — the skill directory name under `priv/claude_skills/` (required)
+      - `:skill_id` — the skill directory name under `priv/skills/` (required)
       - `:type` — MCP component type: `:tool`, `:resource`, or `:prompt` (default: `:tool`)
     """
 
@@ -39,13 +39,14 @@ if Code.ensure_loaded?(Hermes.Server.Component) do
       type = Module.get_attribute(env.module, :skill_type)
       app = Mix.Project.config()[:app]
 
-      priv_dir = :code.priv_dir(app) |> to_string()
-      skill_md_path = Path.join([priv_dir, "claude_skills", skill_id, "SKILL.md"])
+      priv_dir = to_string(:code.priv_dir(app))
+      skill_md_path = Path.join([priv_dir, "skills", skill_id, "SKILL.md"])
 
       content =
         if File.exists?(skill_md_path) do
           File.read!(skill_md_path)
         else
+          IO.warn("SKILL.md not found at #{skill_md_path} — did you run `mix compile` to copy skills to priv/?")
           "Skill content not found at #{skill_md_path}"
         end
 

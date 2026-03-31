@@ -1,7 +1,8 @@
 defmodule ElixirMcp.Installer do
   @moduledoc """
-  Installs and uninstalls Claude Code skills by symlinking or copying
-  skill directories into `~/.claude/skills/`.
+  Installs and uninstalls agent skills by symlinking or copying
+  skill directories into detected agent skill directories
+  (`.claude/skills/`, `.windsurf/skills/`, `.cursor/skills/`, etc.).
 
   Maintains a tracking file (`.elixir_mcp.json`) to record which skills
   were installed and from which package.
@@ -18,11 +19,14 @@ defmodule ElixirMcp.Installer do
   @doc """
   Creates an installation plan by comparing discovered skills against what's currently installed.
   Returns a list of `%{skill: skill, action: action, reason: reason}` entries.
+
+  Options:
+    - `:global` - plan against user-global skills dir (default: false, uses project-local)
   """
-  @spec plan([Skill.t()]) :: [plan_entry()]
-  def plan(skills) do
-    tracking = read_tracking()
-    target_dir = Config.skills_target_dir()
+  @spec plan([Skill.t()], keyword()) :: [plan_entry()]
+  def plan(skills, opts \\ []) do
+    tracking = read_tracking(opts)
+    target_dir = Config.skills_target_dir(opts)
 
     Enum.map(skills, fn skill ->
       target = Path.join(target_dir, skill.namespaced_id)
@@ -50,11 +54,14 @@ defmodule ElixirMcp.Installer do
 
   @doc """
   Detects stale entries: skills in the tracking file whose symlinks are broken.
+
+  Options:
+    - `:global` - check user-global skills dir (default: false)
   """
-  @spec stale_entries() :: [%{namespaced_id: String.t(), reason: String.t()}]
-  def stale_entries do
-    tracking = read_tracking()
-    target_dir = Config.skills_target_dir()
+  @spec stale_entries(keyword()) :: [%{namespaced_id: String.t(), reason: String.t()}]
+  def stale_entries(opts \\ []) do
+    tracking = read_tracking(opts)
+    target_dir = Config.skills_target_dir(opts)
 
     tracking
     |> Enum.filter(fn {id, _meta} ->
@@ -74,12 +81,13 @@ defmodule ElixirMcp.Installer do
   Options:
     - `:force` - overwrite conflicts (default: false)
     - `:copy` - copy instead of symlink (default: false)
+    - `:global` - install to user-global skills dir (default: false)
   """
   @spec execute([plan_entry()], keyword()) :: install_result()
   def execute(plan_entries, opts \\ []) do
     force? = Keyword.get(opts, :force, false)
     copy? = Keyword.get(opts, :copy, false)
-    target_dir = Config.skills_target_dir()
+    target_dir = Config.skills_target_dir(opts)
 
     File.mkdir_p!(target_dir)
 
@@ -91,7 +99,7 @@ defmodule ElixirMcp.Installer do
         end
       end)
 
-    update_tracking_for_installed(Enum.reverse(installed), plan_entries)
+    update_tracking_for_installed(Enum.reverse(installed), plan_entries, opts)
     {:ok, %{installed: Enum.reverse(installed), skipped: Enum.reverse(skipped)}}
   end
 
@@ -119,21 +127,20 @@ defmodule ElixirMcp.Installer do
     {:installed, skill.namespaced_id}
   end
 
-  defp execute_entry(entry, _target_dir, _force?, _copy?) do
-    {:skipped, entry.skill.namespaced_id}
-  end
-
   # -- Uninstallation --
 
   @doc """
   Uninstalls skills by removing their symlinks/directories and cleaning the tracking file.
 
   Pass `:all` to remove everything managed by elixir_mcp, or a list of namespaced IDs.
+
+  Options:
+    - `:global` - uninstall from user-global skills dir (default: false)
   """
-  @spec uninstall(:all | [String.t()]) :: {:ok, [String.t()]}
-  def uninstall(ids) do
-    tracking = read_tracking()
-    target_dir = Config.skills_target_dir()
+  @spec uninstall(:all | [String.t()], keyword()) :: {:ok, [String.t()]}
+  def uninstall(ids, opts \\ []) do
+    tracking = read_tracking(opts)
+    target_dir = Config.skills_target_dir(opts)
 
     ids_to_remove =
       case ids do
@@ -150,27 +157,35 @@ defmodule ElixirMcp.Installer do
     end)
 
     new_tracking = Map.drop(tracking, ids_to_remove)
-    write_tracking(new_tracking)
+    write_tracking(new_tracking, opts)
 
     {:ok, ids_to_remove}
   end
 
   @doc """
   Removes stale entries (broken symlinks) from the tracking file and filesystem.
+
+  Options:
+    - `:global` - clean stale entries from user-global skills dir (default: false)
   """
-  @spec clean_stale() :: {:ok, [String.t()]}
-  def clean_stale do
-    stale = stale_entries()
+  @spec clean_stale(keyword()) :: {:ok, [String.t()]}
+  def clean_stale(opts \\ []) do
+    stale = stale_entries(opts)
     ids = Enum.map(stale, & &1.namespaced_id)
-    uninstall(ids)
+    uninstall(ids, opts)
   end
 
   # -- Tracking file --
 
-  @doc "Returns the current tracking data as a map of namespaced_id => metadata."
-  @spec read_tracking() :: map()
-  def read_tracking do
-    path = Config.tracking_file_path()
+  @doc """
+  Returns the current tracking data as a map of namespaced_id => metadata.
+
+  Options:
+    - `:global` - read from user-global tracking file (default: false)
+  """
+  @spec read_tracking(keyword()) :: map()
+  def read_tracking(opts \\ []) do
+    path = Config.tracking_file_path(opts)
 
     case File.read(path) do
       {:ok, contents} ->
@@ -184,8 +199,8 @@ defmodule ElixirMcp.Installer do
     end
   end
 
-  defp update_tracking_for_installed(installed_ids, plan_entries) do
-    tracking = read_tracking()
+  defp update_tracking_for_installed(installed_ids, plan_entries, opts) do
+    tracking = read_tracking(opts)
     now = DateTime.utc_now() |> DateTime.to_iso8601()
 
     skills_by_id =
@@ -209,11 +224,12 @@ defmodule ElixirMcp.Installer do
 
     tracking
     |> Map.merge(new_entries)
-    |> write_tracking()
+    |> write_tracking(opts)
   end
 
-  defp write_tracking(skills_map) do
-    path = Config.tracking_file_path()
+  defp write_tracking(skills_map, opts) do
+    path = Config.tracking_file_path(opts)
+    File.mkdir_p!(Path.dirname(path))
     data = %{"version" => 1, "skills" => skills_map}
     File.write!(path, Jason.encode!(data, pretty: true))
   end

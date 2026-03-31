@@ -1,7 +1,9 @@
 defmodule ElixirMcp.Discovery do
   @moduledoc """
-  Scans project dependencies for bundled Claude Code skills in `priv/claude_skills/`.
+  Scans project dependencies for bundled Claude Code skills in `priv/skills/`.
   """
+
+  require Logger
 
   alias ElixirMcp.{Config, Manifest, Skill}
 
@@ -26,12 +28,14 @@ defmodule ElixirMcp.Discovery do
       |> Enum.reduce({:ok, []}, fn {package, dep_path}, {:ok, acc} ->
         case scan_dep(package, dep_path) do
           {:ok, skills} -> {:ok, acc ++ skills}
-          {:error, _} -> {:ok, acc}
+          {:error, reason} ->
+            Logger.debug("#{__MODULE__}: skipping dep #{package}, scan failed: #{inspect(reason)}")
+            {:ok, acc}
         end
       end)
 
     with {:ok, library_skills} <- library_result do
-      library_skills = Enum.map(library_skills, fn %Skill{} = s -> %Skill{s | source: :library} end)
+      library_skills = Enum.map(library_skills, fn %Skill{} = skill -> %Skill{skill | source: :library} end)
 
       bundled_skills =
         case scan_bundled(bundled_dir) do
@@ -49,16 +53,15 @@ defmodule ElixirMcp.Discovery do
   @spec scan_dep(atom(), String.t()) :: {:ok, [Skill.t()]} | {:error, String.t()}
   def scan_dep(package, dep_path) do
     skills_base = Path.join([dep_path, "priv", Config.skills_dir_name()])
-    manifest_path = Path.join(skills_base, Config.manifest_filename())
 
-    if File.exists?(manifest_path) do
-      with {:ok, skills} <- Manifest.parse(manifest_path, package, skills_base) do
+    case Manifest.scan(skills_base, package) do
+      {:ok, skills} ->
         version = read_dep_version(dep_path)
         skills = Enum.map(skills, fn %Skill{} = skill -> %Skill{skill | package_version: version} end)
         {:ok, skills}
-      end
-    else
-      {:error, "No manifest found at #{manifest_path}"}
+
+      {:error, _} = error ->
+        error
     end
   end
 
@@ -68,15 +71,13 @@ defmodule ElixirMcp.Discovery do
   """
   @spec scan_bundled(String.t()) :: {:ok, [Skill.t()]} | {:error, String.t()}
   def scan_bundled(bundled_dir \\ Config.bundled_skills_dir()) do
-    manifest_path = Path.join(bundled_dir, Config.manifest_filename())
-
-    if File.exists?(manifest_path) do
-      with {:ok, skills} <- Manifest.parse(manifest_path, Config.bundled_package(), bundled_dir) do
+    case Manifest.scan(bundled_dir, Config.bundled_package()) do
+      {:ok, skills} ->
         skills = Enum.map(skills, fn %Skill{} = skill -> %Skill{skill | source: :bundled} end)
         {:ok, skills}
-      end
-    else
-      {:error, "No bundled skills manifest at #{manifest_path}"}
+
+      {:error, _} = error ->
+        error
     end
   end
 
