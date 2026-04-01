@@ -35,7 +35,7 @@ defmodule Mix.Tasks.Skills.Server do
         port -> {:streamable_http, port: port}
       end
 
-    {:ok, _pid} = ElixirMcp.Server.start(transport)
+    {:ok, _pid} = ElixirSkills.Server.start(transport)
 
     case transport do
       :stdio ->

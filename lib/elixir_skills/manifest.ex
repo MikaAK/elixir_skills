@@ -1,4 +1,4 @@
-defmodule ElixirMcp.Manifest do
+defmodule ElixirSkills.Manifest do
   @moduledoc """
   Discovers skills by scanning directories and parsing SKILL.md frontmatter.
 
@@ -7,7 +7,7 @@ defmodule ElixirMcp.Manifest do
   YAML frontmatter delimited by `---` lines.
   """
 
-  alias ElixirMcp.{Config, Skill}
+  alias ElixirSkills.{Config, Skill}
 
   @type error :: {:error, String.t()}
 

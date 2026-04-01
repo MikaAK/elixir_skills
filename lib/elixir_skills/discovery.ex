@@ -1,11 +1,11 @@
-defmodule ElixirMcp.Discovery do
+defmodule ElixirSkills.Discovery do
   @moduledoc """
   Scans project dependencies for bundled Claude Code skills in `priv/skills/`.
   """
 
   require Logger
 
-  alias ElixirMcp.{Config, Manifest, Skill}
+  alias ElixirSkills.{Config, Manifest, Skill}
 
   @doc """
   Scans all project dependencies for bundled skills.
@@ -67,7 +67,7 @@ defmodule ElixirMcp.Discovery do
 
   @doc """
   Scans a bundled skills directory for fallback skills.
-  These are skills shipped with elixir_mcp for libraries that don't bundle their own.
+  These are skills shipped with elixir_skills for libraries that don't bundle their own.
   """
   @spec scan_bundled(String.t()) :: {:ok, [Skill.t()]} | {:error, String.t()}
   def scan_bundled(bundled_dir \\ Config.bundled_skills_dir()) do

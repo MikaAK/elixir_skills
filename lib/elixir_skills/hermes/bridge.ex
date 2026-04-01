@@ -1,4 +1,4 @@
-defmodule ElixirMcp.Hermes.Bridge do
+defmodule ElixirSkills.Hermes.Bridge do
   @moduledoc """
   Converts discovered skills with MCP configuration into Hermes MCP tool components.
 
@@ -8,7 +8,7 @@ defmodule ElixirMcp.Hermes.Bridge do
   Requires `hermes_mcp` to be available — guarded by `Code.ensure_loaded?/1`.
   """
 
-  alias ElixirMcp.Skill
+  alias ElixirSkills.Skill
 
   @doc """
   Generates dynamic Hermes component modules for all skills that have MCP config.
@@ -135,7 +135,7 @@ defmodule ElixirMcp.Hermes.Bridge do
       |> Enum.map(&String.capitalize/1)
       |> Enum.join()
 
-    Module.concat(ElixirMcp.Hermes.Generated, suffix)
+    Module.concat(ElixirSkills.Hermes.Generated, suffix)
   end
 
   defp read_skill_content(%Skill{source_path: source_path}) do

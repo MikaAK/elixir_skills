@@ -1,12 +1,12 @@
-defmodule ElixirMcp.InstallerTest do
+defmodule ElixirSkills.InstallerTest do
   use ExUnit.Case, async: true
 
-  alias ElixirMcp.{Installer, Skill}
+  alias ElixirSkills.{Installer, Skill}
 
   @fixtures_path Path.expand("../fixtures", __DIR__)
 
   setup do
-    tmp_dir = Path.join(System.tmp_dir!(), "elixir_mcp_test_#{:rand.uniform(100_000)}")
+    tmp_dir = Path.join(System.tmp_dir!(), "elixir_skills_test_#{:rand.uniform(100_000)}")
     File.mkdir_p!(tmp_dir)
 
     on_exit(fn -> File.rm_rf!(tmp_dir) end)
@@ -102,7 +102,7 @@ defmodule ElixirMcp.InstallerTest do
 
       Installer.execute(plan, opts)
 
-      tracking_path = Path.join(tmp_dir, ".elixir_mcp.json")
+      tracking_path = Path.join(tmp_dir, ".elixir_skills.json")
       assert File.exists?(tracking_path)
 
       tracking = tracking_path |> File.read!() |> Jason.decode!()
@@ -143,7 +143,7 @@ defmodule ElixirMcp.InstallerTest do
   end
 
   defp write_tracking(tmp_dir, skills_map) do
-    path = Path.join(tmp_dir, ".elixir_mcp.json")
+    path = Path.join(tmp_dir, ".elixir_skills.json")
     data = %{"version" => 1, "skills" => skills_map}
     File.write!(path, Jason.encode!(data))
   end

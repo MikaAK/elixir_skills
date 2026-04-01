@@ -1,4 +1,4 @@
-defmodule ElixirMcp.Skill do
+defmodule ElixirSkills.Skill do
   @moduledoc """
   Represents a Claude Code skill bundled in a hex package's `priv/skills/` directory.
   """

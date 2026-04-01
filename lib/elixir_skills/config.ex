@@ -1,31 +1,31 @@
-defmodule ElixirMcp.Config do
+defmodule ElixirSkills.Config do
   @moduledoc """
-  Configuration for ElixirMcp skill discovery and installation.
+  Configuration for ElixirSkills skill discovery and installation.
 
   ## Agent support
 
-  ElixirMcp can install skills for multiple agents (Claude Code, Windsurf, Cursor, etc.).
+  ElixirSkills can install skills for multiple agents (Claude Code, Windsurf, Cursor, etc.).
   Each agent has a dotdir (e.g. `.claude/`, `.windsurf/`) where skills are installed.
 
   Configure which agents to target:
 
       # config/config.exs
-      config :elixir_mcp, agents: [:claude, :cursor]
+      config :elixir_skills, agents: [:claude, :cursor]
 
   Or let auto-detection find which agent dotdirs exist:
 
-      config :elixir_mcp, agents: :auto  # default
+      config :elixir_skills, agents: :auto  # default
 
   Supported agents: #{inspect([:claude, :windsurf, :cursor, :codex, :amp])}
   """
 
-  @agents Application.compile_env(:elixir_mcp, :agents, :auto)
-  @bundled_skills_dir Application.compile_env(:elixir_mcp, :bundled_skills_dir, nil)
-  @allowed_packages Application.compile_env(:elixir_mcp, :allowed_packages, nil)
+  @agents Application.compile_env(:elixir_skills, :agents, :auto)
+  @bundled_skills_dir Application.compile_env(:elixir_skills, :bundled_skills_dir, nil)
+  @allowed_packages Application.compile_env(:elixir_skills, :allowed_packages, nil)
 
   @skills_dir_name "skills"
-  @tracking_filename ".elixir_mcp.json"
-  @bundled_package :elixir_mcp
+  @tracking_filename ".elixir_skills.json"
+  @bundled_package :elixir_skills
   @valid_id_pattern ~r/^[a-z0-9][a-z0-9-]*$/
 
   @known_agents %{
@@ -43,7 +43,7 @@ defmodule ElixirMcp.Config do
 
   Resolution order:
     1. Explicit `agents: [...]` in opts
-    2. Compile-time config `config :elixir_mcp, agents: [...]`
+    2. Compile-time config `config :elixir_skills, agents: [...]`
     3. Auto-detection: scans project root for known agent dotdirs
   """
   @spec resolve_agents(keyword()) :: [atom()]
@@ -158,7 +158,7 @@ defmodule ElixirMcp.Config do
 
   @spec bundled_skills_dir() :: String.t()
   def bundled_skills_dir do
-    @bundled_skills_dir || Application.app_dir(:elixir_mcp, "priv/bundled_skills")
+    @bundled_skills_dir || Application.app_dir(:elixir_skills, "priv/bundled_skills")
   end
 
   @spec allowed_packages() :: [atom()] | nil

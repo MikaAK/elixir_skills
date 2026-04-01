@@ -1,14 +1,14 @@
-defmodule ElixirMcp.Installer do
+defmodule ElixirSkills.Installer do
   @moduledoc """
   Installs and uninstalls agent skills by symlinking or copying
   skill directories into detected agent skill directories
   (`.claude/skills/`, `.windsurf/skills/`, `.cursor/skills/`, etc.).
 
-  Maintains a tracking file (`.elixir_mcp.json`) to record which skills
+  Maintains a tracking file (`.elixir_skills.json`) to record which skills
   were installed and from which package.
   """
 
-  alias ElixirMcp.{Config, Skill}
+  alias ElixirSkills.{Config, Skill}
 
   @type action :: :new | :update | :conflict | :stale | :unchanged
   @type plan_entry :: %{skill: Skill.t(), action: action(), reason: String.t() | nil}
@@ -37,7 +37,7 @@ defmodule ElixirMcp.Installer do
           %{skill: skill, action: :new, reason: nil}
 
         is_nil(existing) and File.exists?(target) ->
-          %{skill: skill, action: :conflict, reason: "Directory exists but was not installed by elixir_mcp"}
+          %{skill: skill, action: :conflict, reason: "Directory exists but was not installed by elixir_skills"}
 
         not is_nil(existing) and existing["package"] === to_string(skill.package) ->
           if existing["package_version"] !== skill.package_version do
@@ -132,7 +132,7 @@ defmodule ElixirMcp.Installer do
   @doc """
   Uninstalls skills by removing their symlinks/directories and cleaning the tracking file.
 
-  Pass `:all` to remove everything managed by elixir_mcp, or a list of namespaced IDs.
+  Pass `:all` to remove everything managed by elixir_skills, or a list of namespaced IDs.
 
   Options:
     - `:global` - uninstall from user-global skills dir (default: false)

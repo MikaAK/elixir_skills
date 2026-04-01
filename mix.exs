@@ -1,9 +1,9 @@
-defmodule ElixirMcp.MixProject do
+defmodule ElixirSkills.MixProject do
   use Mix.Project
 
   def project do
     [
-      app: :elixir_mcp,
+      app: :elixir_skills,
       version: "0.1.1",
       start_permanent: Mix.env() === :prod,
       aliases: aliases(),
@@ -16,7 +16,7 @@ defmodule ElixirMcp.MixProject do
   def application do
     [
       extra_applications: [:logger],
-      mod: {ElixirMcp.Application, []}
+      mod: {ElixirSkills.Application, []}
     ]
   end
 
@@ -24,13 +24,13 @@ defmodule ElixirMcp.MixProject do
     [
       maintainers: ["Mika Kalathil"],
       licenses: ["MIT"],
-      links: %{"GitHub" => "https://github.com/MikaAK/elixir_mcp"},
+      links: %{"GitHub" => "https://github.com/MikaAK/elixir_skills"},
       files: ~w(mix.exs README.md lib priv)
     ]
   end
 
   defp aliases do
-    if Mix.Project.config()[:app] === :elixir_mcp do
+    if Mix.Project.config()[:app] === :elixir_skills do
       [
         compile: ["skills.build", "compile"],
         test: ["skills.build", "test"]

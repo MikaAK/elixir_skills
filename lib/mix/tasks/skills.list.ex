@@ -11,7 +11,7 @@ defmodule Mix.Tasks.Skills.List do
 
   ## Options
 
-    - `--installed` - show only skills currently installed by elixir_mcp
+    - `--installed` - show only skills currently installed by elixir_skills
     - `--package` - filter by source package name
     - `--agent` - check a specific agent's skills dir (default: auto-detect)
     - `-g` / `--global` - check user-global `~/.<agent>/skills/` instead of project-local
@@ -19,7 +19,7 @@ defmodule Mix.Tasks.Skills.List do
 
   use Mix.Task
 
-  alias ElixirMcp.{Config, Discovery, Installer}
+  alias ElixirSkills.{Config, Discovery, Installer}
 
   @impl Mix.Task
   def run(args) do

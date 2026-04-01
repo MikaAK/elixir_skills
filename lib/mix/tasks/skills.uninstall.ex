@@ -1,5 +1,5 @@
 defmodule Mix.Tasks.Skills.Uninstall do
-  @shortdoc "Uninstalls skills managed by elixir_mcp"
+  @shortdoc "Uninstalls skills managed by elixir_skills"
   @moduledoc """
   Removes skills installed by `mix skills.install`.
 
@@ -12,7 +12,7 @@ defmodule Mix.Tasks.Skills.Uninstall do
 
   use Mix.Task
 
-  alias ElixirMcp.{Config, Installer}
+  alias ElixirSkills.{Config, Installer}
 
   @impl Mix.Task
   def run(args) do
@@ -50,7 +50,7 @@ defmodule Mix.Tasks.Skills.Uninstall do
         tracking = Installer.read_tracking(scope_opts)
 
         if Enum.empty?(tracking) do
-          Mix.shell().info("No skills installed by elixir_mcp.")
+          Mix.shell().info("No skills installed by elixir_skills.")
         else
           count = map_size(tracking)
 

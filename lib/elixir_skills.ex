@@ -1,8 +1,8 @@
-defmodule ElixirMcp do
+defmodule ElixirSkills do
   @moduledoc """
   Standardized skill bundling for Elixir hex packages.
 
-  ElixirMcp enables hex package authors to ship agent skills alongside
+  ElixirSkills enables hex package authors to ship agent skills alongside
   their library code. Skills are agent-agnostic — any MCP-compatible
   agent (Claude Code, Cursor, Windsurf, etc.) can discover and use them.
 
@@ -19,7 +19,7 @@ defmodule ElixirMcp do
 
   ## For consumers
 
-  1. Add `{:elixir_mcp, "~> 0.1.0"}` to your deps
+  1. Add `{:elixir_skills, "~> 0.1.0"}` to your deps
   2. Run `mix skills.list` to see available skills from all deps
   3. Run `mix skills.install` to symlink into detected agent dirs (`.claude/skills/`, `.windsurf/skills/`, etc.)
   4. Run `mix skills.install -g` to install to user-global `~/.<agent>/skills/` instead
@@ -33,16 +33,16 @@ defmodule ElixirMcp do
 
   Or programmatically:
 
-      ElixirMcp.start_server(:stdio)
-      ElixirMcp.start_server({:streamable_http, port: 4242})
+      ElixirSkills.start_server(:stdio)
+      ElixirSkills.start_server({:streamable_http, port: 4242})
 
   ## Hermes MCP integration
 
   Library authors can also create native Hermes MCP components backed by skills.
-  See `ElixirMcp.HermesSkill` and `ElixirMcp.Hermes.Bridge` for details.
+  See `ElixirSkills.HermesSkill` and `ElixirSkills.Hermes.Bridge` for details.
   """
 
-  alias ElixirMcp.{Discovery, Installer}
+  alias ElixirSkills.{Discovery, Installer}
 
   @doc "Scans all deps for bundled skills."
   defdelegate scan(opts \\ []), to: Discovery
@@ -60,5 +60,5 @@ defmodule ElixirMcp do
   defdelegate installed(opts \\ []), to: Installer, as: :read_tracking
 
   @doc "Starts the MCP server with the given transport (:stdio or {:streamable_http, port: N})."
-  defdelegate start_server(transport), to: ElixirMcp.Server, as: :start
+  defdelegate start_server(transport), to: ElixirSkills.Server, as: :start
 end

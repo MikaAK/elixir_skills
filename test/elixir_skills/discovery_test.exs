@@ -1,7 +1,7 @@
-defmodule ElixirMcp.DiscoveryTest do
+defmodule ElixirSkills.DiscoveryTest do
   use ExUnit.Case, async: true
 
-  alias ElixirMcp.{Discovery, Skill}
+  alias ElixirSkills.{Discovery, Skill}
 
   @bundled_path Path.expand("../fixtures/bundled_skills", __DIR__)
 
@@ -20,16 +20,16 @@ defmodule ElixirMcp.DiscoveryTest do
       assert skill.source === :bundled
     end
 
-    test "uses elixir_mcp as package name" do
+    test "uses elixir_skills as package name" do
       {:ok, [skill | _]} = Discovery.scan_bundled(@bundled_path)
-      assert skill.package === :elixir_mcp
+      assert skill.package === :elixir_skills
     end
 
-    test "namespaces with elixir_mcp prefix" do
+    test "namespaces with elixir_skills prefix" do
       {:ok, skills} = Discovery.scan_bundled(@bundled_path)
       namespaced = Enum.map(skills, & &1.namespaced_id)
-      assert "elixir_mcp--test-skill" in namespaced
-      assert "elixir_mcp--unique-bundled" in namespaced
+      assert "elixir_skills--test-skill" in namespaced
+      assert "elixir_skills--unique-bundled" in namespaced
     end
 
     test "returns error for nonexistent directory" do
@@ -63,8 +63,8 @@ defmodule ElixirMcp.DiscoveryTest do
 
       bundled_skill = %Skill{
         id: "test-skill",
-        namespaced_id: "elixir_mcp--test-skill",
-        package: :elixir_mcp,
+        namespaced_id: "elixir_skills--test-skill",
+        package: :elixir_skills,
         source_path: "/bundled/path",
         source: :bundled
       }
@@ -87,8 +87,8 @@ defmodule ElixirMcp.DiscoveryTest do
 
       bundled_skill = %Skill{
         id: "unique-bundled",
-        namespaced_id: "elixir_mcp--unique-bundled",
-        package: :elixir_mcp,
+        namespaced_id: "elixir_skills--unique-bundled",
+        package: :elixir_skills,
         source_path: "/bundled/path",
         source: :bundled
       }
@@ -104,9 +104,9 @@ defmodule ElixirMcp.DiscoveryTest do
     test "multiple libraries can override different bundled skills" do
       lib_a = %Skill{id: "auth", namespaced_id: "lib_a--auth", package: :lib_a, source_path: "/a", source: :library}
       lib_b = %Skill{id: "cache", namespaced_id: "lib_b--cache", package: :lib_b, source_path: "/b", source: :library}
-      bundled_auth = %Skill{id: "auth", namespaced_id: "elixir_mcp--auth", package: :elixir_mcp, source_path: "/c", source: :bundled}
-      bundled_cache = %Skill{id: "cache", namespaced_id: "elixir_mcp--cache", package: :elixir_mcp, source_path: "/d", source: :bundled}
-      bundled_extra = %Skill{id: "extra", namespaced_id: "elixir_mcp--extra", package: :elixir_mcp, source_path: "/e", source: :bundled}
+      bundled_auth = %Skill{id: "auth", namespaced_id: "elixir_skills--auth", package: :elixir_skills, source_path: "/c", source: :bundled}
+      bundled_cache = %Skill{id: "cache", namespaced_id: "elixir_skills--cache", package: :elixir_skills, source_path: "/d", source: :bundled}
+      bundled_extra = %Skill{id: "extra", namespaced_id: "elixir_skills--extra", package: :elixir_skills, source_path: "/e", source: :bundled}
 
       merged = Discovery.merge_with_precedence([lib_a, lib_b], [bundled_auth, bundled_cache, bundled_extra])
 

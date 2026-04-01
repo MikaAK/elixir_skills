@@ -1,7 +1,7 @@
-defmodule ElixirMcp.ManifestTest do
+defmodule ElixirSkills.ManifestTest do
   use ExUnit.Case, async: true
 
-  alias ElixirMcp.Manifest
+  alias ElixirSkills.Manifest
 
   @fixtures_path Path.expand("../fixtures", __DIR__)
   @base_path Path.join([@fixtures_path, "fake_dep", "priv", "skills"])
@@ -12,7 +12,7 @@ defmodule ElixirMcp.ManifestTest do
       assert skill.id === "test-skill"
       assert skill.namespaced_id === "fake_dep--test-skill"
       assert skill.package === :fake_dep
-      assert skill.description === "Use when testing elixir_mcp functionality"
+      assert skill.description === "Use when testing elixir_skills functionality"
       assert skill.source_path === Path.join(@base_path, "test-skill")
       assert skill.mcp === %{type: :tool, name: "get_test_skill"}
     end
@@ -71,7 +71,7 @@ defmodule ElixirMcp.ManifestTest do
   end
 
   defp make_tmp_dir do
-    tmp = Path.join(System.tmp_dir!(), "elixir_mcp_manifest_#{:rand.uniform(100_000)}")
+    tmp = Path.join(System.tmp_dir!(), "elixir_skills_manifest_#{:rand.uniform(100_000)}")
     File.mkdir_p!(tmp)
     ExUnit.Callbacks.on_exit(fn -> File.rm_rf!(tmp) end)
     tmp

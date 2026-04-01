@@ -1,5 +1,5 @@
 ---
-name: elixir_mcp--test-skill
+name: elixir_skills--test-skill
 description: Bundled fallback test skill
 ---
 

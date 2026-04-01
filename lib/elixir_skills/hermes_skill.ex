@@ -1,5 +1,5 @@
 if Code.ensure_loaded?(Hermes.Server.Component) do
-  defmodule ElixirMcp.HermesSkill do
+  defmodule ElixirSkills.HermesSkill do
     @moduledoc """
     Macro for library authors to create Hermes MCP components backed by a Claude Code skill.
 
@@ -8,7 +8,7 @@ if Code.ensure_loaded?(Hermes.Server.Component) do
     ## Usage
 
         defmodule MyLib.Skills.WorkerPatterns do
-          use ElixirMcp.HermesSkill,
+          use ElixirSkills.HermesSkill,
             skill_id: "worker-patterns",
             type: :tool
 
@@ -30,7 +30,7 @@ if Code.ensure_loaded?(Hermes.Server.Component) do
         @skill_id unquote(skill_id)
         @skill_type unquote(type)
 
-        @before_compile ElixirMcp.HermesSkill
+        @before_compile ElixirSkills.HermesSkill
       end
     end
 

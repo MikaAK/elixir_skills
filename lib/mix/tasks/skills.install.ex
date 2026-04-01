@@ -29,7 +29,7 @@ defmodule Mix.Tasks.Skills.Install do
 
   use Mix.Task
 
-  alias ElixirMcp.{Config, Discovery, Installer}
+  alias ElixirSkills.{Config, Discovery, Installer}
 
   @impl Mix.Task
   def run(args) do

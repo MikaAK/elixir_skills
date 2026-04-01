@@ -20,7 +20,7 @@ defmodule Mix.Tasks.Skills.Init do
 
   use Mix.Task
 
-  alias ElixirMcp.Config
+  alias ElixirSkills.Config
 
   @impl Mix.Task
   def run(args) do

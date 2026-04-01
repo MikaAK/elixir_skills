@@ -1,7 +1,7 @@
-defmodule ElixirMcp.ServerTest do
+defmodule ElixirSkills.ServerTest do
   use ExUnit.Case
 
-  alias ElixirMcp.Server
+  alias ElixirSkills.Server
 
   test "server module is defined and uses Hermes.Server" do
     assert {:module, Server} === Code.ensure_loaded(Server)

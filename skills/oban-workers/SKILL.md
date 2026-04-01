@@ -1,5 +1,5 @@
 ---
-name: elixir_mcp--oban-workers
+name: elixir_skills--oban-workers
 description: Use when implementing Oban background workers (bundled fallback)
 ---
 

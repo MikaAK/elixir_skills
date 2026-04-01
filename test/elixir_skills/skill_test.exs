@@ -1,7 +1,7 @@
-defmodule ElixirMcp.SkillTest do
+defmodule ElixirSkills.SkillTest do
   use ExUnit.Case, async: true
 
-  alias ElixirMcp.Skill
+  alias ElixirSkills.Skill
 
   describe "namespace/2" do
     test "combines package and skill ID with double-dash" do

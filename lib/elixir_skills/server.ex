@@ -1,4 +1,4 @@
-defmodule ElixirMcp.Server do
+defmodule ElixirSkills.Server do
   @moduledoc """
   MCP server that exposes skills discovered from hex dependencies.
 
@@ -10,10 +10,10 @@ defmodule ElixirMcp.Server do
   ## Starting the server
 
       # Via stdio (for Claude Code, Cursor, etc.)
-      ElixirMcp.Server.start(:stdio)
+      ElixirSkills.Server.start(:stdio)
 
       # Via HTTP
-      ElixirMcp.Server.start({:streamable_http, port: 4242})
+      ElixirSkills.Server.start({:streamable_http, port: 4242})
 
   ## Available tools
 
@@ -29,7 +29,7 @@ defmodule ElixirMcp.Server do
     capabilities: [:tools]
 
   alias Hermes.Server.Frame
-  alias ElixirMcp.{Config, Discovery, Installer, Skill}
+  alias ElixirSkills.{Config, Discovery, Installer, Skill}
 
   @doc "Starts the MCP server with the given transport."
   def start(transport) do
