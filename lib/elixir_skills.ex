@@ -2,44 +2,33 @@ defmodule ElixirSkills do
   @moduledoc """
   Standardized skill bundling for Elixir hex packages.
 
-  ElixirSkills enables hex package authors to ship agent skills alongside
-  their library code. Skills are agent-agnostic — any MCP-compatible
-  agent (Claude Code, Cursor, Windsurf, etc.) can discover and use them.
+  `elixir_skills` lets hex package authors ship one agent skill per library
+  and installs them as a single merged `elixir-skills` skill per agent. Each
+  library's content appears under `references/<library-id>/` inside that
+  merged skill; the top-level `SKILL.md` is a generated router that points
+  the agent to the right library for the current task.
 
   ## For library authors
 
-  1. Run `mix skills.init my-skill-name` to scaffold a `skills/` directory at your project root
-  2. Edit the generated `SKILL.md` with your skill content
-  3. `mix compile` automatically copies `skills/` → `priv/skills/` via a compile alias
-  4. Publish to Hex — skills ship automatically via `priv/`
-
-  The `skills/` directory at the project root is the canonical authoring location.
-  Contributors see and edit skills there. The `priv/skills/` directory is a
-  build artifact generated at compile time.
+  1. Run `mix skills.init my-library-id` to scaffold `skills/SKILL.md` at
+     your project root.
+  2. Optional: add deeper guidance in `skills/references/<topic>.md`.
+  3. `mix compile` copies `skills/` → `priv/skills/` so the content ships
+     with your hex package.
 
   ## For consumers
 
-  1. Add `{:elixir_skills, "~> 0.1.0"}` to your deps
-  2. Run `mix skills.list` to see available skills from all deps
-  3. Run `mix skills.install` to symlink into detected agent dirs (`.claude/skills/`, `.windsurf/skills/`, etc.)
-  4. Run `mix skills.install -g` to install to user-global `~/.<agent>/skills/` instead
+  1. Add `{:elixir_skills, "~> 0.2.0"}` to your deps.
+  2. `mix skills.list` shows every discovered library.
+  3. `mix skills.install` creates
+     `.claude/skills/elixir-skills/` (mirrored across any detected agent
+     dotdirs) with a symlink per library and a generated router SKILL.md.
+  4. `mix skills.install -g` installs into `~/.<agent>/skills/` instead.
 
   ## MCP server
 
-  Start an MCP server that exposes skills to any agent:
-
-      mix skills.server              # stdio transport
-      mix skills.server --http 4242  # HTTP transport
-
-  Or programmatically:
-
-      ElixirSkills.start_server(:stdio)
-      ElixirSkills.start_server({:streamable_http, port: 4242})
-
-  ## Hermes MCP integration
-
-  Library authors can also create native Hermes MCP components backed by skills.
-  See `ElixirSkills.HermesSkill` and `ElixirSkills.Hermes.Bridge` for details.
+      mix skills.server              # stdio
+      mix skills.server --http 4242  # streamable HTTP
   """
 
   alias ElixirSkills.{Discovery, Installer}
