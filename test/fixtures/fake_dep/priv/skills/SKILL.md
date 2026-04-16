@@ -1,5 +1,5 @@
 ---
-name: fake-dep--test-skill
+name: fake-dep
 description: Use when testing elixir_skills functionality
 mcp: tool:get_test_skill
 ---

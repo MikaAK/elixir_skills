@@ -1,63 +1,49 @@
 defmodule ElixirSkills.Manifest do
   @moduledoc """
-  Discovers skills by scanning directories and parsing SKILL.md frontmatter.
+  Parses a library's `SKILL.md` file and returns a `Skill` struct.
 
-  Each subdirectory under a skills base path that contains a `SKILL.md` file
-  is treated as a skill. Metadata (description, mcp config) is extracted from
-  YAML frontmatter delimited by `---` lines.
+  A library directory looks like:
+
+      <dir>/
+        SKILL.md           # required — YAML frontmatter + body
+        references/        # optional
+          patterns.md
+
+  The `name:` frontmatter field is the library's logical id; `description:`
+  becomes the router catalog entry.
   """
 
-  alias ElixirSkills.{Config, Skill}
+  alias ElixirSkills.Skill
 
   @type error :: {:error, String.t()}
+  @type result :: {:ok, Skill.t()} | :no_skill | error()
+
+  @valid_id_pattern ~r/^[a-z0-9][a-z0-9-]*$/
 
   @doc """
-  Scans a directory for skill subdirectories containing SKILL.md files.
-  Returns a list of Skill structs built from frontmatter metadata.
+  Parses `<dir>/SKILL.md` and returns a Skill. Returns `:no_skill` when the
+  file is absent (not an error — the dir just doesn't host a library skill).
   """
-  @spec scan(String.t(), atom()) :: {:ok, [Skill.t()]} | error()
-  def scan(base_path, package) do
-    if File.dir?(base_path) do
-      skills =
-        base_path
-        |> File.ls!()
-        |> Enum.sort()
-        |> Enum.filter(fn name -> File.dir?(Path.join(base_path, name)) end)
-        |> Enum.reduce([], fn dir_name, acc ->
-          skill_md = Path.join([base_path, dir_name, "SKILL.md"])
+  @spec parse_library(String.t(), atom()) :: result()
+  def parse_library(dir, package) do
+    skill_md = Path.join(dir, "SKILL.md")
 
-          if File.exists?(skill_md) do
-            case parse_skill(dir_name, skill_md, package, base_path) do
-              {:ok, skill} -> [skill | acc]
-              {:error, _} -> acc
-            end
-          else
-            acc
-          end
-        end)
-        |> Enum.reverse()
-
-      {:ok, skills}
-    else
-      {:error, "Directory does not exist: #{base_path}"}
+    cond do
+      not File.dir?(dir) -> :no_skill
+      not File.exists?(skill_md) -> :no_skill
+      true -> read_and_build(skill_md, dir, package)
     end
   end
 
-  @doc """
-  Parses a single SKILL.md file and returns a Skill struct.
-  """
-  @spec parse_skill(String.t(), String.t(), atom(), String.t()) :: {:ok, Skill.t()} | error()
-  def parse_skill(dir_name, skill_md_path, package, base_path) do
-    with :ok <- validate_id(dir_name),
-         {:ok, contents} <- File.read(skill_md_path),
-         {:ok, frontmatter} <- parse_frontmatter(contents) do
-      source_path = Path.join(base_path, dir_name)
-
+  defp read_and_build(skill_md, dir, package) do
+    with {:ok, contents} <- File.read(skill_md),
+         {:ok, frontmatter} <- parse_frontmatter(contents),
+         {:ok, id} <- fetch_id(frontmatter) do
       skill = %Skill{
-        id: dir_name,
+        id: id,
         package: package,
         description: frontmatter["description"],
-        source_path: source_path,
+        source_path: dir,
         mcp: parse_mcp_config(frontmatter["mcp"])
       }
 
@@ -66,8 +52,8 @@ defmodule ElixirSkills.Manifest do
   end
 
   @doc """
-  Extracts YAML frontmatter from a string delimited by `---` lines.
-  Returns a map of key-value pairs parsed from simple `key: value` lines.
+  Extracts YAML frontmatter delimited by `---` lines. Returns `{:ok, map}`;
+  empty map when no frontmatter is present.
   """
   @spec parse_frontmatter(String.t()) :: {:ok, map()} | error()
   def parse_frontmatter(content) do
@@ -88,18 +74,19 @@ defmodule ElixirSkills.Manifest do
     end)
   end
 
-  defp validate_id(id) do
-    if Regex.match?(Config.valid_id_pattern(), id) do
-      :ok
+  defp fetch_id(%{"name" => id}) when is_binary(id) do
+    if Regex.match?(@valid_id_pattern, id) do
+      {:ok, id}
     else
-      {:error, "Invalid skill id '#{id}': must match [a-z0-9][a-z0-9-]*"}
+      {:error, "Invalid 'name:' frontmatter '#{id}': must match [a-z0-9][a-z0-9-]*"}
     end
   end
+
+  defp fetch_id(_), do: {:error, "missing 'name:' frontmatter"}
 
   defp parse_mcp_config(nil), do: nil
 
   defp parse_mcp_config(mcp_string) when is_binary(mcp_string) do
-    # frontmatter mcp is a simple "type:name" format
     case String.split(mcp_string, ":", parts: 2) do
       [type, name] when type in ["tool", "resource", "prompt"] ->
         %{type: String.to_existing_atom(String.trim(type)), name: String.trim(name)}
