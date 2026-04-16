@@ -144,6 +144,20 @@ defmodule ElixirSkills.Config do
 
   # STATIC CONFIG
 
+  @router_skill_name "elixir-skills"
+
+  @spec router_skill_name() :: String.t()
+  def router_skill_name, do: @router_skill_name
+
+  @doc """
+  Full path to the merged `elixir-skills` skill directory for a given target.
+  Accepts the same opts as `skills_target_dir/1`.
+  """
+  @spec router_skill_dir(keyword()) :: String.t()
+  def router_skill_dir(opts \\ []) do
+    Path.join(skills_target_dir(opts), @router_skill_name)
+  end
+
   @spec skills_dir_name() :: String.t()
   def skills_dir_name, do: @skills_dir_name
 
