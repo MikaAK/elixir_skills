@@ -3,155 +3,121 @@ defmodule ElixirSkills.InstallerTest do
 
   alias ElixirSkills.{Installer, Skill}
 
-  @fixtures_path Path.expand("../fixtures", __DIR__)
+  @fixtures Path.expand("../fixtures", __DIR__)
 
   setup do
-    tmp_dir = Path.join(System.tmp_dir!(), "elixir_skills_test_#{:rand.uniform(100_000)}")
+    tmp_dir = Path.join(System.tmp_dir!(), "elixir_skills_installer_#{:rand.uniform(100_000)}")
     File.mkdir_p!(tmp_dir)
-
     on_exit(fn -> File.rm_rf!(tmp_dir) end)
 
     {:ok, tmp_dir: tmp_dir, opts: [target_dir: tmp_dir]}
   end
 
-  defp make_skill(id, package \\ :fake_dep) do
-    source = Path.join([@fixtures_path, "fake_dep", "priv", "skills", "test-skill"])
+  defp make_skill(id, package \\ :fake_dep, version \\ "1.0.0") do
+    source = Path.join([@fixtures, "fake_dep", "priv", "skills"])
 
     %Skill{
       id: id,
-      namespaced_id: Skill.namespace(package, id),
       package: package,
-      package_version: "1.0.0",
-      description: "Test skill",
+      package_version: version,
+      description: "Trigger on #{id}",
       source_path: source,
-      mcp: nil
+      mcp: nil,
+      source: :library
     }
   end
 
-  describe "plan/1" do
-    test "marks new skills as :new", %{opts: opts} do
-      skill = make_skill("my-skill")
+  describe "plan/2" do
+    test "marks new libraries as :new", %{opts: opts} do
+      skill = make_skill("fake-dep")
       [entry] = Installer.plan([skill], opts)
       assert entry.action === :new
+      assert entry.skill.id === "fake-dep"
     end
 
-    test "marks installed same-version skills as :unchanged", %{tmp_dir: tmp_dir, opts: opts} do
-      skill = make_skill("my-skill")
-
-      target = Path.join(tmp_dir, skill.namespaced_id)
-      File.ln_s!(skill.source_path, target)
-
-      tracking = %{
-        skill.namespaced_id => %{
-          "package" => "fake_dep",
-          "package_version" => "1.0.0",
-          "source_path" => skill.source_path,
-          "installed_at" => "2026-01-01T00:00:00Z"
-        }
-      }
-
-      write_tracking(tmp_dir, tracking)
+    test "marks same-version tracked libraries as :unchanged", %{opts: opts} do
+      skill = make_skill("fake-dep")
+      # Pre-install to create the symlink
+      {:ok, _} = Installer.execute([%{skill: skill, action: :new, reason: nil}], opts)
 
       [entry] = Installer.plan([skill], opts)
       assert entry.action === :unchanged
     end
 
-    test "marks conflicting unmanaged skills as :conflict", %{tmp_dir: tmp_dir, opts: opts} do
-      skill = make_skill("my-skill")
-      target = Path.join(tmp_dir, skill.namespaced_id)
-      File.mkdir_p!(target)
+    test "marks version bumps as :update", %{opts: opts} do
+      old = make_skill("fake-dep", :fake_dep, "1.0.0")
+      {:ok, _} = Installer.execute([%{skill: old, action: :new, reason: nil}], opts)
 
-      [entry] = Installer.plan([skill], opts)
-      assert entry.action === :conflict
+      new = make_skill("fake-dep", :fake_dep, "2.0.0")
+      [entry] = Installer.plan([new], opts)
+      assert entry.action === :update
+      assert entry.reason =~ "1.0.0 → 2.0.0"
     end
   end
 
   describe "execute/2" do
-    test "creates symlinks for new skills", %{tmp_dir: tmp_dir, opts: opts} do
-      skill = make_skill("my-skill")
-      plan = [%{skill: skill, action: :new, reason: nil}]
+    test "creates references/<id> as a symlink and writes router SKILL.md", %{tmp_dir: tmp, opts: opts} do
+      skill = make_skill("fake-dep")
+      {:ok, result} = Installer.execute([%{skill: skill, action: :new, reason: nil}], opts)
 
-      assert {:ok, %{installed: [_], skipped: []}} = Installer.execute(plan, opts)
+      assert result.installed === ["fake-dep"]
 
-      target = Path.join(tmp_dir, skill.namespaced_id)
-      assert File.exists?(target)
-      assert {:ok, %{type: :symlink}} = File.lstat(target)
+      router_dir = Path.join(tmp, "elixir-skills")
+      link = Path.join([router_dir, "references", "fake-dep"])
+      assert {:ok, %{type: :symlink}} = File.lstat(link)
+
+      router_md = File.read!(Path.join(router_dir, "SKILL.md"))
+      assert router_md =~ "fake-dep"
+      assert router_md =~ "name: elixir-skills"
     end
 
-    test "copies when :copy option is set", %{tmp_dir: tmp_dir, opts: opts} do
-      skill = make_skill("copy-skill")
-      plan = [%{skill: skill, action: :new, reason: nil}]
+    test "regenerates router when a library is re-installed with copy mode", %{opts: opts} do
+      skill = make_skill("fake-dep")
 
-      assert {:ok, %{installed: [_], skipped: []}} = Installer.execute(plan, [copy: true] ++ opts)
+      {:ok, _} =
+        Installer.execute(
+          [%{skill: skill, action: :new, reason: nil}],
+          Keyword.put(opts, :copy, true)
+        )
 
-      target = Path.join(tmp_dir, skill.namespaced_id)
-      assert File.exists?(target)
-      assert {:ok, %{type: :directory}} = File.lstat(target)
-    end
-
-    test "skips conflicts without force", %{opts: opts} do
-      skill = make_skill("conflict-skill")
-      plan = [%{skill: skill, action: :conflict, reason: "exists"}]
-
-      assert {:ok, %{installed: [], skipped: [_]}} = Installer.execute(plan, opts)
-    end
-
-    test "writes tracking file", %{tmp_dir: tmp_dir, opts: opts} do
-      skill = make_skill("tracked-skill")
-      plan = [%{skill: skill, action: :new, reason: nil}]
-
-      Installer.execute(plan, opts)
-
-      tracking_path = Path.join(tmp_dir, ".elixir_skills.json")
-      assert File.exists?(tracking_path)
-
-      tracking = tracking_path |> File.read!() |> Jason.decode!()
-      assert Map.has_key?(tracking["skills"], skill.namespaced_id)
+      link = Path.join([opts[:target_dir], "elixir-skills", "references", "fake-dep"])
+      assert File.dir?(link)
+      assert {:ok, %{type: :directory}} = File.lstat(link)
     end
   end
 
-  describe "uninstall/1" do
-    test "removes installed skills", %{tmp_dir: tmp_dir, opts: opts} do
-      skill = make_skill("remove-me")
-      plan = [%{skill: skill, action: :new, reason: nil}]
-      Installer.execute(plan, opts)
+  describe "uninstall/2" do
+    test "removes one library and regenerates router", %{tmp_dir: tmp, opts: opts} do
+      skill = make_skill("fake-dep")
+      {:ok, _} = Installer.execute([%{skill: skill, action: :new, reason: nil}], opts)
 
-      target = Path.join(tmp_dir, skill.namespaced_id)
-      assert File.exists?(target) or symlink?(target)
+      assert {:ok, ["fake-dep"]} = Installer.uninstall(["fake-dep"], opts)
 
-      {:ok, removed} = Installer.uninstall([skill.namespaced_id], opts)
-      assert skill.namespaced_id in removed
-      refute File.exists?(target)
+      refute File.exists?(Path.join([tmp, "elixir-skills", "references", "fake-dep"]))
+      # router still exists but with empty catalog
+      router_md = File.read!(Path.join([tmp, "elixir-skills", "SKILL.md"]))
+      assert router_md =~ "No libraries installed yet"
     end
 
-    test "uninstall :all removes everything", %{opts: opts} do
-      skill1 = make_skill("skill-a")
-      skill2 = make_skill("skill-b")
-
-      plan = [
-        %{skill: skill1, action: :new, reason: nil},
-        %{skill: skill2, action: :new, reason: nil}
-      ]
-
-      Installer.execute(plan, opts)
+    test ":all removes the whole merged skill directory", %{tmp_dir: tmp, opts: opts} do
+      skill = make_skill("fake-dep")
+      {:ok, _} = Installer.execute([%{skill: skill, action: :new, reason: nil}], opts)
 
       {:ok, removed} = Installer.uninstall(:all, opts)
-      assert length(removed) === 2
-
-      assert Enum.empty?(Installer.read_tracking(opts))
+      assert "fake-dep" in removed
+      refute File.exists?(Path.join(tmp, "elixir-skills"))
     end
   end
 
-  defp write_tracking(tmp_dir, skills_map) do
-    path = Path.join(tmp_dir, ".elixir_skills.json")
-    data = %{"version" => 1, "skills" => skills_map}
-    File.write!(path, Jason.encode!(data))
-  end
+  describe "read_tracking/1" do
+    test "returns map keyed by library id", %{opts: opts} do
+      skill = make_skill("fake-dep")
+      {:ok, _} = Installer.execute([%{skill: skill, action: :new, reason: nil}], opts)
 
-  defp symlink?(path) do
-    case File.lstat(path) do
-      {:ok, %{type: :symlink}} -> true
-      _ -> false
+      tracking = Installer.read_tracking(opts)
+      assert Map.has_key?(tracking, "fake-dep")
+      assert tracking["fake-dep"]["package"] === "fake_dep"
+      assert tracking["fake-dep"]["package_version"] === "1.0.0"
     end
   end
 end
