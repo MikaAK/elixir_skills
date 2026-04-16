@@ -1,33 +1,30 @@
 if Code.ensure_loaded?(Hermes.Server.Component) do
   defmodule ElixirSkills.HermesSkill do
     @moduledoc """
-    Macro for library authors to create Hermes MCP components backed by a Claude Code skill.
+    Macro for library authors to create Hermes MCP components backed by their library's skill.
 
-    Requires `hermes_mcp` as a dependency. This module is only defined when hermes_mcp is available.
+    Each hex package ships one skill at `skills/SKILL.md` (copied to `priv/skills/SKILL.md`
+    by the compile alias). This macro reads that file at compile time and wraps it as a
+    Hermes MCP component.
 
     ## Usage
 
-        defmodule MyLib.Skills.WorkerPatterns do
-          use ElixirSkills.HermesSkill,
-            skill_id: "worker-patterns",
-            type: :tool
+        defmodule MyLib.Skills do
+          use ElixirSkills.HermesSkill, type: :tool
 
-          # Optional: override call/1 for dynamic behavior
-          # Default returns the SKILL.md content
+          # Optional: override call/1 for dynamic behavior.
+          # Default returns the SKILL.md content.
         end
 
     ## Options
 
-      - `:skill_id` — the skill directory name under `priv/skills/` (required)
       - `:type` — MCP component type: `:tool`, `:resource`, or `:prompt` (default: `:tool`)
     """
 
     defmacro __using__(opts) do
-      skill_id = Keyword.fetch!(opts, :skill_id)
       type = Keyword.get(opts, :type, :tool)
 
       quote do
-        @skill_id unquote(skill_id)
         @skill_type unquote(type)
 
         @before_compile ElixirSkills.HermesSkill
@@ -35,12 +32,11 @@ if Code.ensure_loaded?(Hermes.Server.Component) do
     end
 
     defmacro __before_compile__(env) do
-      skill_id = Module.get_attribute(env.module, :skill_id)
       type = Module.get_attribute(env.module, :skill_type)
       app = Mix.Project.config()[:app]
 
       priv_dir = to_string(:code.priv_dir(app))
-      skill_md_path = Path.join([priv_dir, "skills", skill_id, "SKILL.md"])
+      skill_md_path = Path.join([priv_dir, "skills", "SKILL.md"])
 
       content =
         if File.exists?(skill_md_path) do
@@ -73,7 +69,7 @@ if Code.ensure_loaded?(Hermes.Server.Component) do
           end
 
         :resource ->
-          uri = "skill://#{app}/#{skill_id}"
+          uri = "skill://#{app}"
 
           quote do
             use Hermes.Server.Component, type: :resource

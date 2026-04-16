@@ -14,15 +14,14 @@ defmodule ElixirSkills.ServerTest do
     assert Hermes.Server in behaviours
   end
 
-  test "start/1 accepts transport config" do
+  test "start/1, init/2, handle_tool_call/3 are exported" do
     assert function_exported?(Server, :start, 1)
-  end
-
-  test "init/2 registers expected tools" do
     assert function_exported?(Server, :init, 2)
+    assert function_exported?(Server, :handle_tool_call, 3)
   end
 
-  test "handle_tool_call/3 is implemented" do
-    assert function_exported?(Server, :handle_tool_call, 3)
+  test "list_skills returns JSON text response without crashing" do
+    {:reply, response, %{}} = Server.handle_tool_call("list_skills", %{}, %{})
+    assert %Hermes.Server.Response{} = response
   end
 end

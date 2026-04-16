@@ -37,8 +37,8 @@ defmodule ElixirSkills.Hermes.Bridge do
   def build_component(%Skill{mcp: %{type: :tool}} = skill) do
     module_name = module_name_for(skill)
     skill_content = read_skill_content(skill)
-    description = skill.description || "Skill: #{skill.namespaced_id}"
-    tool_name = skill.mcp.name || skill.namespaced_id
+    description = skill.description || "Skill: #{skill.id}"
+    tool_name = skill.mcp.name || skill.id
 
     contents =
       quote do
@@ -68,7 +68,7 @@ defmodule ElixirSkills.Hermes.Bridge do
   def build_component(%Skill{mcp: %{type: :resource}} = skill) do
     module_name = module_name_for(skill)
     skill_content = read_skill_content(skill)
-    description = skill.description || "Skill: #{skill.namespaced_id}"
+    description = skill.description || "Skill: #{skill.id}"
     uri = "skill://#{skill.package}/#{skill.id}"
 
     contents =
@@ -92,7 +92,7 @@ defmodule ElixirSkills.Hermes.Bridge do
   def build_component(%Skill{mcp: %{type: :prompt}} = skill) do
     module_name = module_name_for(skill)
     skill_content = read_skill_content(skill)
-    description = skill.description || "Skill: #{skill.namespaced_id}"
+    description = skill.description || "Skill: #{skill.id}"
 
     contents =
       quote do
@@ -129,8 +129,7 @@ defmodule ElixirSkills.Hermes.Bridge do
 
   defp module_name_for(%Skill{} = skill) do
     suffix =
-      skill.namespaced_id
-      |> String.replace("--", ".")
+      skill.id
       |> String.split("-")
       |> Enum.map(&String.capitalize/1)
       |> Enum.join()
