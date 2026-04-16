@@ -29,16 +29,7 @@ defmodule ElixirSkills.MixProject do
     ]
   end
 
-  defp aliases do
-    if Mix.Project.config()[:app] === :elixir_skills do
-      [
-        compile: ["skills.build", "compile"],
-        test: ["skills.build", "test"]
-      ]
-    else
-      []
-    end
-  end
+  defp aliases, do: []
 
   defp deps do
     [

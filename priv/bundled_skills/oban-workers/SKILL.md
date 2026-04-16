@@ -1,5 +1,5 @@
 ---
-name: elixir_skills--oban-workers
+name: oban-workers
 description: Use when implementing Oban background workers (bundled fallback)
 ---
 
