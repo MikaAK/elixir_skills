@@ -25,5 +25,5 @@ elixir_skills-*.tar
 # Temporary files, for example, from tests.
 /tmp/
 
-# Generated from skills/ at compile time.
-/priv/bundled_skills/
+# Git worktrees for isolated feature work.
+/.worktrees/
