@@ -1,5 +1,5 @@
 ---
-name: elixir_skills--test-skill
+name: test-skill
 description: Bundled fallback test skill
 ---
 

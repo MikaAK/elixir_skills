@@ -1,5 +1,5 @@
 ---
-name: elixir_skills--unique-bundled
+name: unique-bundled
 description: A skill only in bundled defaults
 ---
 

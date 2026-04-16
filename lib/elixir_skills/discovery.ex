@@ -1,6 +1,9 @@
 defmodule ElixirSkills.Discovery do
   @moduledoc """
-  Scans project dependencies for bundled Claude Code skills in `priv/skills/`.
+  Discovers library skills from hex deps and `elixir_skills`'s bundled baselines.
+
+  Each discovered entry is a single `Skill` struct representing one library's
+  `SKILL.md`. The installer merges these into the `elixir-skills` router skill.
   """
 
   require Logger
@@ -8,57 +11,57 @@ defmodule ElixirSkills.Discovery do
   alias ElixirSkills.{Config, Manifest, Skill}
 
   @doc """
-  Scans all project dependencies for bundled skills.
+  Scans every dep for a `priv/skills/SKILL.md` plus the baseline fallbacks
+  shipped in `elixir_skills`'s own `priv/bundled_skills/`.
 
   Options:
-    - `:packages` - list of package atoms to restrict scanning to (default: all)
-    - `:bundled_skills_dir` - path to bundled fallback skills (default: `Config.bundled_skills_dir()`)
+    - `:packages` — restrict scanning to these atoms
+    - `:bundled_skills_dir` — override the baseline path (for tests)
   """
   @spec scan(keyword()) :: {:ok, [Skill.t()]} | {:error, String.t()}
   def scan(opts \\ []) do
     filter_packages = Keyword.get(opts, :packages, nil)
     bundled_dir = Keyword.get(opts, :bundled_skills_dir, Config.bundled_skills_dir())
 
-    deps_paths = deps_paths()
-
-    library_result =
-      deps_paths
+    library_skills =
+      deps_paths()
       |> maybe_filter_packages(filter_packages)
       |> maybe_filter_allowed()
-      |> Enum.reduce({:ok, []}, fn {package, dep_path}, {:ok, acc} ->
+      |> Enum.flat_map(fn {package, dep_path} ->
         case scan_dep(package, dep_path) do
-          {:ok, skills} -> {:ok, acc ++ skills}
+          {:ok, skills} ->
+            Enum.map(skills, fn %Skill{} = skill -> %Skill{skill | source: :library} end)
+
           {:error, reason} ->
-            Logger.debug("#{__MODULE__}: skipping dep #{package}, scan failed: #{inspect(reason)}")
-            {:ok, acc}
+            Logger.debug("#{__MODULE__}: skipping dep #{package}: #{inspect(reason)}")
+            []
         end
       end)
 
-    with {:ok, library_skills} <- library_result do
-      library_skills = Enum.map(library_skills, fn %Skill{} = skill -> %Skill{skill | source: :library} end)
+    bundled_skills =
+      case scan_bundled(bundled_dir) do
+        {:ok, skills} -> skills
+        {:error, _} -> []
+      end
 
-      bundled_skills =
-        case scan_bundled(bundled_dir) do
-          {:ok, skills} -> skills
-          {:error, _} -> []
-        end
-
-      {:ok, merge_with_precedence(library_skills, bundled_skills)}
-    end
+    {:ok, merge_with_precedence(library_skills, bundled_skills)}
   end
 
   @doc """
-  Scans a single dependency for bundled skills.
+  Returns `{:ok, [Skill.t()]}` for a single dep. The list has zero or one
+  entry — one library per dep under the new model.
   """
-  @spec scan_dep(atom(), String.t()) :: {:ok, [Skill.t()]} | {:error, String.t()}
+  @spec scan_dep(atom(), String.t()) :: {:ok, [Skill.t()]}
   def scan_dep(package, dep_path) do
-    skills_base = Path.join([dep_path, "priv", Config.skills_dir_name()])
+    skills_path = Path.join([dep_path, "priv", Config.skills_dir_name()])
 
-    case Manifest.scan(skills_base, package) do
-      {:ok, skills} ->
+    case Manifest.parse_library(skills_path, package) do
+      {:ok, %Skill{} = skill} ->
         version = read_dep_version(dep_path)
-        skills = Enum.map(skills, fn %Skill{} = skill -> %Skill{skill | package_version: version} end)
-        {:ok, skills}
+        {:ok, [%Skill{skill | package_version: version}]}
+
+      :no_skill ->
+        {:ok, []}
 
       {:error, _} = error ->
         error
@@ -66,32 +69,42 @@ defmodule ElixirSkills.Discovery do
   end
 
   @doc """
-  Scans a bundled skills directory for fallback skills.
-  These are skills shipped with elixir_skills for libraries that don't bundle their own.
+  Scans `elixir_skills`'s baseline directory. Each subdirectory is treated
+  as one library's content (`<bundled_dir>/<lib>/SKILL.md`).
   """
   @spec scan_bundled(String.t()) :: {:ok, [Skill.t()]} | {:error, String.t()}
   def scan_bundled(bundled_dir \\ Config.bundled_skills_dir()) do
-    case Manifest.scan(bundled_dir, Config.bundled_package()) do
-      {:ok, skills} ->
-        skills = Enum.map(skills, fn %Skill{} = skill -> %Skill{skill | source: :bundled} end)
-        {:ok, skills}
+    if File.dir?(bundled_dir) do
+      skills =
+        bundled_dir
+        |> File.ls!()
+        |> Enum.sort()
+        |> Enum.filter(fn name -> File.dir?(Path.join(bundled_dir, name)) end)
+        |> Enum.flat_map(fn lib_dir ->
+          full = Path.join(bundled_dir, lib_dir)
 
-      {:error, _} = error ->
-        error
+          case Manifest.parse_library(full, Config.bundled_package()) do
+            {:ok, %Skill{} = skill} -> [%Skill{skill | source: :bundled}]
+            _ -> []
+          end
+        end)
+
+      {:ok, skills}
+    else
+      {:error, "bundled_skills_dir does not exist: #{bundled_dir}"}
     end
   end
 
   @doc """
-  Merges library skills with bundled fallback skills.
-  Library skills always take precedence — if any library provides a skill with
-  the same base `id`, the bundled version with that id is excluded.
+  Merges library skills with bundled skills. Library skills override bundled
+  skills with the same `id`.
   """
   @spec merge_with_precedence([Skill.t()], [Skill.t()]) :: [Skill.t()]
   def merge_with_precedence(library_skills, bundled_skills) do
-    library_ids = library_skills |> Enum.map(& &1.id) |> MapSet.new()
-
-    kept_bundled = Enum.reject(bundled_skills, fn skill -> MapSet.member?(library_ids, skill.id) end)
-
+    library_ids = library_skills |> Enum.map(&(&1.id)) |> MapSet.new()
+    kept_bundled = Enum.reject(bundled_skills, fn %Skill{id: id} ->
+      MapSet.member?(library_ids, id)
+    end)
     library_skills ++ kept_bundled
   end
 
@@ -105,32 +118,25 @@ defmodule ElixirSkills.Discovery do
 
   defp maybe_filter_packages(deps, nil), do: deps
   defp maybe_filter_packages(deps, packages) do
-    Enum.filter(deps, fn {pkg, _} -> pkg in packages end)
+    Enum.filter(deps, fn {p, _} -> p in packages end)
   end
 
   defp maybe_filter_allowed(deps) do
     case Config.allowed_packages() do
       nil -> deps
-      allowed -> Enum.filter(deps, fn {pkg, _} -> pkg in allowed end)
+      allowed -> Enum.filter(deps, fn {p, _} -> p in allowed end)
     end
   end
 
   defp read_dep_version(dep_path) do
     mix_exs = Path.join(dep_path, "mix.exs")
 
-    if File.exists?(mix_exs) do
-      case File.read(mix_exs) do
-        {:ok, contents} ->
-          case Regex.run(~r/version:\s*"([^"]+)"/, contents) do
-            [_, version] -> version
-            _ -> nil
-          end
-
-        _ ->
-          nil
-      end
+    with true <- File.exists?(mix_exs),
+         {:ok, contents} <- File.read(mix_exs),
+         [_, version] <- Regex.run(~r/version:\s*"([^"]+)"/, contents) do
+      version
     else
-      nil
+      _ -> nil
     end
   end
 end
