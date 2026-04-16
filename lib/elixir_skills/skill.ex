@@ -1,28 +1,16 @@
 defmodule ElixirSkills.Skill do
   @moduledoc """
-  Represents a Claude Code skill bundled in a hex package's `priv/skills/` directory.
+  Represents one library's contribution to the merged `elixir-skills` skill.
+
+  The `id` is the library's logical name (from the `name:` frontmatter field
+  in the library's `skills/SKILL.md`) and must be unique across all discovered
+  libraries. Each library's `source_path` is the directory containing
+  `SKILL.md` and an optional `references/` subdirectory.
   """
 
-  @type mcp_config :: %{
-          type: :tool | :resource | :prompt,
-          name: String.t()
-        }
-
-  @type t :: %__MODULE__{
-          id: String.t(),
-          namespaced_id: String.t(),
-          package: atom(),
-          package_version: String.t() | nil,
-          description: String.t(),
-          source_path: String.t(),
-          mcp: mcp_config() | nil,
-          source: :library | :bundled | nil
-        }
-
-  @enforce_keys [:id, :namespaced_id, :package, :source_path]
+  @enforce_keys [:id, :package, :source_path]
   defstruct [
     :id,
-    :namespaced_id,
     :package,
     :package_version,
     :description,
@@ -31,12 +19,15 @@ defmodule ElixirSkills.Skill do
     :source
   ]
 
-  @doc """
-  Builds the namespaced skill ID from package name and skill ID.
-  Uses double-dash separator to distinguish package prefix from skill ID.
-  """
-  @spec namespace(atom(), String.t()) :: String.t()
-  def namespace(package, skill_id) do
-    "#{package}--#{skill_id}"
-  end
+  @type mcp_config :: %{type: :tool | :resource | :prompt, name: String.t()}
+
+  @type t :: %__MODULE__{
+          id: String.t(),
+          package: atom(),
+          package_version: String.t() | nil,
+          description: String.t() | nil,
+          source_path: String.t(),
+          mcp: mcp_config() | nil,
+          source: :library | :bundled | nil
+        }
 end

@@ -55,7 +55,6 @@ defmodule ElixirSkills.Manifest do
 
       skill = %Skill{
         id: dir_name,
-        namespaced_id: Skill.namespace(package, dir_name),
         package: package,
         description: frontmatter["description"],
         source_path: source_path,

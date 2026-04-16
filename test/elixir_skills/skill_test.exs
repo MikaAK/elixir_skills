@@ -3,36 +3,23 @@ defmodule ElixirSkills.SkillTest do
 
   alias ElixirSkills.Skill
 
-  describe "namespace/2" do
-    test "combines package and skill ID with double-dash" do
-      assert Skill.namespace(:oban, "worker-patterns") === "oban--worker-patterns"
-    end
-
-    test "works with string package names" do
-      assert Skill.namespace(:my_lib, "test") === "my_lib--test"
-    end
-  end
-
-  describe "source field" do
-    test "skill struct includes source field" do
+  describe "struct" do
+    test "requires id, package, source_path" do
       skill = %Skill{
-        id: "test",
-        namespaced_id: "pkg--test",
-        package: :pkg,
-        source_path: "/tmp",
-        source: :library
+        id: "elixir-lang-ex",
+        package: :lang_ex,
+        source_path: "/tmp/lang_ex/priv/skills"
       }
-      assert skill.source === :library
+
+      assert skill.id === "elixir-lang-ex"
+      assert skill.package === :lang_ex
+      assert skill.source_path === "/tmp/lang_ex/priv/skills"
     end
 
-    test "source defaults to nil" do
-      skill = %Skill{
-        id: "test",
-        namespaced_id: "pkg--test",
-        package: :pkg,
-        source_path: "/tmp"
-      }
-      assert is_nil(skill.source)
+    test "raises when enforced keys missing" do
+      assert_raise ArgumentError, fn ->
+        struct!(Skill, id: "x")
+      end
     end
   end
 end
