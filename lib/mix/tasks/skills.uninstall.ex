@@ -4,7 +4,7 @@ defmodule Mix.Tasks.Skills.Uninstall do
   Removes skills installed by `mix skills.install`.
 
       $ mix skills.uninstall              # Remove all managed skills
-      $ mix skills.uninstall oban--workers # Remove specific skill
+      $ mix skills.uninstall fake-dep     # Remove specific library
       $ mix skills.uninstall --stale       # Remove only stale/broken entries
       $ mix skills.uninstall --agent claude
       $ mix skills.uninstall -g            # Remove from global ~/.<agent>/skills/

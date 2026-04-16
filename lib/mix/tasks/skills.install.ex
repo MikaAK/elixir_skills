@@ -8,10 +8,10 @@ defmodule Mix.Tasks.Skills.Install do
   Cursor, etc.) by checking for their dotdirs, and installs to all of them.
 
       $ mix skills.install
-      $ mix skills.install oban phoenix
+      $ mix skills.install oban
       $ mix skills.install --agent claude
       $ mix skills.install --global
-      $ mix skills.install -g oban
+      $ mix skills.install -g
       $ mix skills.install --dry-run
       $ mix skills.install --copy
       $ mix skills.install --force
@@ -108,6 +108,7 @@ defmodule Mix.Tasks.Skills.Install do
           install_opts = Keyword.merge(scope_opts, force: opts[:force] || false, copy: opts[:copy] || false)
           {:ok, %{installed: installed, skipped: skipped}} = Installer.execute(entries_to_install, install_opts)
           Mix.shell().info("\nInstalled #{length(installed)} skill(s), skipped #{length(skipped)}.")
+          Mix.shell().info("Merged skill: #{Path.join(target_dir, Config.router_skill_name())}")
 
           if not Enum.empty?(stale) do
             if Mix.shell().yes?("Clean #{length(stale)} stale entry/entries?") do
@@ -155,11 +156,11 @@ defmodule Mix.Tasks.Skills.Install do
         end
 
       reason = if entry.reason, do: " — #{entry.reason}", else: ""
-      Mix.shell().info("  #{tag} #{entry.skill.namespaced_id}#{reason}")
+      Mix.shell().info("  #{tag} #{entry.skill.id}#{reason}")
     end)
 
     Enum.each(stale, fn entry ->
-      Mix.shell().info("  [STALE]     #{entry.namespaced_id} — #{entry.reason}")
+      Mix.shell().info("  [STALE]     #{entry.library_id} — #{entry.reason}")
     end)
 
     Mix.shell().info("")

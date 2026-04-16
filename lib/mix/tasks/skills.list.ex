@@ -66,13 +66,13 @@ defmodule Mix.Tasks.Skills.List do
         Mix.shell().info(String.duplicate("-", 100))
 
         Enum.each(skills, fn skill ->
-          status = if Map.has_key?(tracking, skill.namespaced_id), do: "[installed]", else: "[available]"
+          status = if Map.has_key?(tracking, skill.id), do: "[installed]", else: "[available]"
           source = to_string(skill.source || :library)
           desc = truncate(skill.description || "(no description)", 35)
 
           Mix.shell().info(
             pad(to_string(skill.package), 20) <>
-              pad(skill.namespaced_id, 30) <>
+              pad(skill.id, 30) <>
               pad(source, 10) <>
               pad(status, 12) <>
               desc
