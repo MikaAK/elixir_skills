@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.2.0 (2026-04-16)
+
+### Changed
+
+- **BREAKING:** `mix skills.install` now produces a single merged `elixir-skills` skill per agent (`<agent>/skills/elixir-skills/`) instead of one skill directory per library. Library content is symlinked under `references/<library-id>/`.
+- **BREAKING:** library authors now ship a single `skills/SKILL.md` (+ optional `skills/references/`) instead of one subdirectory per skill. The `name:` frontmatter field is the library id; `package--skill` namespacing is gone.
+- `Skill` struct lost `namespaced_id`; `id` is now the library id.
+- Tracking file key format: library ids (`"libraries"` top-level key). Legacy `"skills"` key read for one-version migration.
+- Mix task renames preserved; `skills.init` produces the new single-file layout.
+
+### Added
+
+- `ElixirSkills.Router` — synthesizes the router SKILL.md.
+- `Config.router_skill_name/0`, `Config.router_skill_dir/1`.
+
+### Removed
+
+- `ElixirSkills.Skill.namespace/2` and `namespaced_id` field.
+- `ElixirSkills.Manifest.scan/2` and `parse_skill/4` (replaced by `parse_library/2`).
+- `skills/` directory in the `elixir_skills` repo (baselines moved to `priv/bundled_skills/<lib>/`).
+
 ## 0.1.1 (2026-03-31)
 
 ### Added

@@ -67,28 +67,23 @@ defmodule ElixirSkills.Server do
 
   @impl true
   def handle_tool_call("list_skills", _args, frame) do
-    case Discovery.scan() do
-      {:ok, skills} ->
-        tracking = Installer.read_tracking()
+    {:ok, skills} = Discovery.scan()
+    tracking = Installer.read_tracking()
 
-        result =
-          Enum.map(skills, fn skill ->
-            %{
-              id: skill.id,
-              package: to_string(skill.package),
-              version: skill.package_version,
-              description: skill.description,
-              installed: Map.has_key?(tracking, skill.id),
-              has_mcp: not is_nil(skill.mcp),
-              source: to_string(skill.source || :library)
-            }
-          end)
+    result =
+      Enum.map(skills, fn skill ->
+        %{
+          id: skill.id,
+          package: to_string(skill.package),
+          version: skill.package_version,
+          description: skill.description,
+          installed: Map.has_key?(tracking, skill.id),
+          has_mcp: not is_nil(skill.mcp),
+          source: to_string(skill.source || :library)
+        }
+      end)
 
-        {:reply, text_response(Jason.encode!(result, pretty: true)), frame}
-
-      {:error, reason} ->
-        {:reply, text_response("Error scanning skills: #{reason}"), frame}
-    end
+    {:reply, text_response(Jason.encode!(result, pretty: true)), frame}
   end
 
   def handle_tool_call("get_skill", %{"skill_id" => skill_id}, frame) do
@@ -165,15 +160,11 @@ defmodule ElixirSkills.Server do
   end
 
   defp find_skill(library_id) do
-    case Discovery.scan() do
-      {:ok, skills} ->
-        case Enum.find(skills, fn %Skill{id: id} -> id === library_id end) do
-          nil -> {:error, "Library '#{library_id}' not found in any dependency"}
-          %Skill{} = skill -> {:ok, skill}
-        end
+    {:ok, skills} = Discovery.scan()
 
-      {:error, reason} ->
-        {:error, "Discovery failed: #{reason}"}
+    case Enum.find(skills, fn %Skill{id: id} -> id === library_id end) do
+      nil -> {:error, "Library '#{library_id}' not found in any dependency"}
+      %Skill{} = skill -> {:ok, skill}
     end
   end
 end

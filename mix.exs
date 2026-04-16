@@ -4,7 +4,7 @@ defmodule ElixirSkills.MixProject do
   def project do
     [
       app: :elixir_skills,
-      version: "0.1.0",
+      version: "0.2.0",
       start_permanent: Mix.env() === :prod,
       aliases: aliases(),
       deps: deps(),

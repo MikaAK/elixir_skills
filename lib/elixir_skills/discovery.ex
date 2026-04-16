@@ -18,7 +18,7 @@ defmodule ElixirSkills.Discovery do
     - `:packages` — restrict scanning to these atoms
     - `:bundled_skills_dir` — override the baseline path (for tests)
   """
-  @spec scan(keyword()) :: {:ok, [Skill.t()]} | {:error, String.t()}
+  @spec scan(keyword()) :: {:ok, [Skill.t()]}
   def scan(opts \\ []) do
     filter_packages = Keyword.get(opts, :packages, nil)
     bundled_dir = Keyword.get(opts, :bundled_skills_dir, Config.bundled_skills_dir())
